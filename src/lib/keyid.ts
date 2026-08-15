@@ -64,7 +64,7 @@ export async function provisionKeyId(seedHex: string) {
     method: 'POST',
     body: JSON.stringify({
       pubkey: kp.publicKey,
-      storageType: 'secrets_manager',
+      storageType: 'memory',
       ...(projectKey ? { projectKey } : {}),
     }),
   })
