@@ -1,26 +1,56 @@
 import crypto from 'node:crypto'
 import { Buffer } from 'node:buffer'
-import { KeyID } from '@keyid/sdk'
+
+const BASE_URL = (process.env.KEYID_BASE_URL || 'https://keyid.ai').replace(/\/$/, '')
+const PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex')
 
 function keyPair(seedHex: string) {
   const seed = Buffer.from(seedHex, 'hex')
   if (seed.length !== 32) throw new Error('Invalid KeyID seed')
-  const der = Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), seed])
+  const der = Buffer.concat([PKCS8_PREFIX, seed])
   const privateKey = crypto.createPrivateKey({ key: der, format: 'der', type: 'pkcs8' })
   const publicKey = crypto.createPublicKey(privateKey)
-  const jwk = publicKey.export({ format: 'jwk' }) as JsonWebKey
-  if (!jwk.x) throw new Error('Could not derive KeyID public key')
   return {
     privateKey: seedHex,
-    publicKey: Buffer.from(jwk.x, 'base64url').toString('hex'),
+    publicKey: publicKey.export({ type: 'spki', format: 'der' }).subarray(-32).toString('hex'),
   }
 }
 
-function client(seedHex: string) {
-  const projectKey = process.env.KEYID_PROJECT_KEY?.trim()
-  const options: Record<string, unknown> = { keypair: keyPair(seedHex) }
-  if (projectKey) options.projectKey = projectKey
-  return new (KeyID as any)(options)
+function sign(message: string, privateKeyHex: string) {
+  const der = Buffer.concat([PKCS8_PREFIX, Buffer.from(privateKeyHex, 'hex')])
+  const key = crypto.createPrivateKey({ key: der, format: 'der', type: 'pkcs8' })
+  return crypto.sign(null, Buffer.from(message), key).toString('hex')
+}
+
+async function apiFetch(path: string, init: RequestInit = {}, token?: string) {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      'content-type': 'application/json',
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(init.headers || {}),
+    },
+    cache: 'no-store',
+  })
+  const raw = await response.text()
+  let data: any
+  try { data = raw ? JSON.parse(raw) : {} } catch { data = { error: raw } }
+  if (!response.ok) throw new Error(data?.error || `KeyID HTTP ${response.status}`)
+  return data
+}
+
+async function authenticate(seedHex: string) {
+  const kp = keyPair(seedHex)
+  const challenge = await apiFetch('/api/auth/challenge', {
+    method: 'POST',
+    body: JSON.stringify({ pubkey: kp.publicKey }),
+  })
+  const signature = sign(challenge.nonce, kp.privateKey)
+  const verified = await apiFetch('/api/auth/verify', {
+    method: 'POST',
+    body: JSON.stringify({ pubkey: kp.publicKey, nonce: challenge.nonce, signature }),
+  })
+  return verified.token as string
 }
 
 export function keyIdWebhookTokenHash(webhookToken: string) {
@@ -28,32 +58,41 @@ export function keyIdWebhookTokenHash(webhookToken: string) {
 }
 
 export async function provisionKeyId(seedHex: string) {
-  return client(seedHex).provision()
+  const kp = keyPair(seedHex)
+  const projectKey = process.env.KEYID_PROJECT_KEY?.trim()
+  return apiFetch('/api/provision', {
+    method: 'POST',
+    body: JSON.stringify({
+      pubkey: kp.publicKey,
+      storageType: 'secrets_manager',
+      ...(projectKey ? { projectKey } : {}),
+    }),
+  })
 }
 
 export async function getKeyIdIdentity(seedHex: string) {
-  return client(seedHex).getIdentity()
-}
-
-export async function requestKeyIdPhone(seedHex: string) {
-  const agent: any = client(seedHex)
-  if (typeof agent.requestPhone !== 'function') return null
-  return agent.requestPhone()
+  const token = await authenticate(seedHex)
+  return apiFetch('/api/identity', {}, token)
 }
 
 export async function sendKeyIdEmail(seedHex: string, to: string, subject: string, body: string, threadId?: string) {
-  return client(seedHex).send(to, subject, body, threadId ? { threadId, displayName: 'StudyForm Research' } : { displayName: 'StudyForm Research' })
+  const token = await authenticate(seedHex)
+  return apiFetch('/api/send', {
+    method: 'POST',
+    body: JSON.stringify({
+      to,
+      subject,
+      body,
+      displayName: 'StudyForm',
+      ...(threadId ? { threadId } : {}),
+    }),
+  }, token)
 }
 
 export async function createKeyIdWebhook(seedHex: string, url: string) {
-  const agent: any = client(seedHex)
-  try {
-    return await agent.createWebhook(url, { events: ['message.received', 'sms.received'] })
-  } catch (first) {
-    try {
-      return await agent.createWebhook(url, ['message.received', 'sms.received'])
-    } catch {
-      throw first
-    }
-  }
+  const token = await authenticate(seedHex)
+  return apiFetch('/api/webhooks', {
+    method: 'POST',
+    body: JSON.stringify({ url, events: ['message.received'] }),
+  }, token)
 }
