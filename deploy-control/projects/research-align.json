@@ -1,0 +1,35 @@
+{
+  "name": "research-align",
+  "teamId": "team_muySkNMTu5rLXyDOd5pTz1tw",
+  "framework": "nextjs",
+  "git": {
+    "repo": "stpcoder/research-align",
+    "ref": "main",
+    "createIfMissing": false
+  },
+  "rootDirectory": null,
+  "publicProduction": true,
+  "deploy": true,
+  "target": "production",
+  "env": [
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "value": "https://rgwqsqeikebwunbdnbex.supabase.co",
+      "type": "plain",
+      "target": ["production", "preview"]
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+      "value": "sb_publishable_0U07RsYALzeuEdf-05DmTw_3ku3Ab8N",
+      "type": "plain",
+      "target": ["production", "preview"]
+    },
+    {
+      "key": "KEYID_PROJECT_KEY",
+      "fromSecret": "KEYID_PROJECT_KEY",
+      "type": "sensitive",
+      "target": ["production"],
+      "optional": true
+    }
+  ]
+}
