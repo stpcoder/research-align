@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createKeyIdWebhook, getKeyIdIdentity, keyIdWebhookTokenHash, provisionKeyId, requestKeyIdPhone } from '@/lib/keyid'
+import { createKeyIdWebhook, getKeyIdIdentity, keyIdWebhookTokenHash, provisionKeyId } from '@/lib/keyid'
 import { supabaseAsUser } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     if (userError || !userData.user) return Response.json({ error: 'Invalid session' }, { status: 401 })
 
     const { data: study, error: studyError } = await db.from('studies').select('id,title').eq('id', body.studyId).single()
-    if (studyError || !study) return Response.json({ error: 'Study not found or not owned by this researcher' }, { status: 404 })
+    if (studyError || !study) return Response.json({ error: 'Study not found' }, { status: 404 })
 
     const { data: materialRows, error: materialError } = await db.rpc('ensure_keyid_material', { p_study_id: study.id })
     if (materialError || !materialRows?.[0]) throw materialError || new Error('Could not initialize KeyID material')
@@ -29,20 +29,11 @@ export async function POST(request: NextRequest) {
       if (!/already|exists|registered/i.test(String(error?.message || error))) throw error
     })
 
-    let identity = await getKeyIdIdentity(material.key_seed)
-    let phoneResult: any = null
-    if (!identity?.phone) {
-      try {
-        phoneResult = await requestKeyIdPhone(material.key_seed)
-        identity = await getKeyIdIdentity(material.key_seed)
-      } catch (phoneError) {
-        phoneResult = { error: phoneError instanceof Error ? phoneError.message : String(phoneError) }
-      }
-    }
+    const identity = await getKeyIdIdentity(material.key_seed)
     const webhookToken = material.webhook_token
     const webhookTokenHash = keyIdWebhookTokenHash(webhookToken)
-    const origin = request.nextUrl.origin
-    const webhookUrl = `${origin}/api/keyid/webhook?studyId=${encodeURIComponent(study.id)}&token=${encodeURIComponent(webhookToken)}`
+    const webhookUrl = `${request.nextUrl.origin}/api/keyid/webhook?studyId=${encodeURIComponent(study.id)}&token=${encodeURIComponent(webhookToken)}`
+
     let webhook: Record<string, unknown> | null = null
     try {
       webhook = await createKeyIdWebhook(material.key_seed, webhookUrl)
@@ -50,27 +41,35 @@ export async function POST(request: NextRequest) {
       if (!/already|exists|duplicate/i.test(String((error as Error)?.message || error))) throw error
     }
 
-    const baseConfig = {
+    const config = {
       webhook_token_hash: webhookTokenHash,
       webhook_url: webhookUrl,
       webhook_id: (webhook as any)?.webhookId || (webhook as any)?.id || null,
       updated_at: new Date().toISOString(),
     }
 
-    const channels = [
-      { study_id: study.id, provider: 'keyid', channel: 'email', address: identity.email || null, provider_identity_id: identity.agentId || null, status: 'active', config: baseConfig },
-    ]
-    if (identity.phone) channels.push({ study_id: study.id, provider: 'keyid', channel: 'phone', address: identity.phone, provider_identity_id: identity.agentId || null, status: 'active', config: baseConfig } as any)
-
-    for (const channel of channels) {
-      const { data: existing } = await db.from('study_contact_channels').select('id').eq('study_id', study.id).eq('provider', 'keyid').eq('channel', channel.channel).maybeSingle()
-      if (existing?.id) await db.from('study_contact_channels').update(channel).eq('id', existing.id)
-      else await db.from('study_contact_channels').insert(channel)
+    const channel = {
+      study_id: study.id,
+      provider: 'keyid',
+      channel: 'email',
+      address: identity.email || null,
+      provider_identity_id: identity.agentId || null,
+      status: 'active',
+      config,
     }
 
-    return Response.json({ ...identity, phone: identity?.phone || phoneResult?.phone || phoneResult?.phoneNumber || null, phoneResult, webhookConfigured: true, studyTitle: study.title })
+    const { data: existing } = await db.from('study_contact_channels').select('id').eq('study_id', study.id).eq('provider', 'keyid').eq('channel', 'email').maybeSingle()
+    if (existing?.id) await db.from('study_contact_channels').update(channel).eq('id', existing.id)
+    else await db.from('study_contact_channels').insert(channel)
+
+    return Response.json({ ...identity, webhookConfigured: true, studyTitle: study.title })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'KeyID provisioning failed'
-    return Response.json({ error: message, hint: /Project key required/i.test(message) ? 'KeyID production is currently requiring KEYID_PROJECT_KEY for server-side provisioning. Configure it as a server-only Vercel environment variable.' : undefined }, { status: 500 })
+    return Response.json({
+      error: message,
+      hint: /Project key required/i.test(message)
+        ? 'KeyID 서버가 현재 project key를 요구하고 있습니다. KEYID_PROJECT_KEY를 server-only 환경변수로 설정하면 됩니다.'
+        : undefined,
+    }, { status: 500 })
   }
 }
