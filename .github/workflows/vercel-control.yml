@@ -1,0 +1,99 @@
+name: Vercel Control Plane
+
+on:
+  push:
+    paths:
+      - 'deploy-control/projects/*.json'
+      - 'deploy-control/scripts/**'
+      - '.github/workflows/vercel-control.yml'
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Manifest name without .json (for example: research-align)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vercel-control-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      DEPLOY_CONTROL_SECRETS: ${{ secrets.DEPLOY_CONTROL_SECRETS }}
+      GITHUB_ADMIN_TOKEN: ${{ secrets.GITHUB_ADMIN_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Resolve manifests
+        id: manifests
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PROJECT: ${{ inputs.project }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            manifest="deploy-control/projects/${INPUT_PROJECT}.json"
+            test -f "$manifest" || { echo "Manifest not found: $manifest"; exit 1; }
+            printf '%s\n' "$manifest" > /tmp/manifests.txt
+          else
+            if [[ -z "${BEFORE_SHA:-}" || "$BEFORE_SHA" =~ ^0+$ ]]; then
+              find deploy-control/projects -maxdepth 1 -name '*.json' -type f | sort > /tmp/manifests.txt
+            else
+              git diff --name-only "$BEFORE_SHA" "$CURRENT_SHA" -- 'deploy-control/projects/*.json' > /tmp/manifests.txt || true
+              if [[ ! -s /tmp/manifests.txt ]]; then
+                # Script/workflow changes should be validated against every manifest.
+                find deploy-control/projects -maxdepth 1 -name '*.json' -type f | sort > /tmp/manifests.txt
+              fi
+            fi
+          fi
+          echo 'Applying manifests:'
+          cat /tmp/manifests.txt
+
+      - name: Check Vercel credential
+        shell: bash
+        run: |
+          if [[ -z "${VERCEL_TOKEN:-}" ]]; then
+            echo 'Missing repository secret VERCEL_TOKEN.' >&2
+            echo 'Add it in GitHub → Settings → Secrets and variables → Actions.' >&2
+            exit 1
+          fi
+
+      - name: Apply manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r manifest; do
+            [[ -n "$manifest" ]] || continue
+            echo "::group::Apply $manifest"
+            node deploy-control/scripts/apply.mjs "$manifest"
+            echo '::endgroup::'
+          done < /tmp/manifests.txt
+
+      - name: Commit deployment state
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -d deploy-control/state ]]; then
+            exit 0
+          fi
+          git config user.name 'research-align-deploy-bot'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add deploy-control/state/
+          if git diff --cached --quiet; then
+            echo 'No state changes.'
+            exit 0
+          fi
+          git commit -m 'Update Vercel deployment state [skip ci]'
+          git push
