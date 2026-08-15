@@ -1,129 +1,65 @@
 # Deploy Control Plane
 
-This folder turns GitHub into a control plane for Vercel projects. A project manifest is the desired state; GitHub Actions creates/reconciles the Vercel project, Git connection, environment variables, deployment protection, and a production deployment.
+The primary deployment path is now a **server-side ChatGPT control plane** hosted in the connected Supabase project. GitHub remains the source of truth for application source; Vercel REST API manages persistent projects and production deployments.
 
-## One-time setup
-
-### Required: `VERCEL_TOKEN`
-
-Create a Vercel access token that can manage projects/deployments in the target team, then add it to this repository:
-
-`GitHub → Settings → Secrets and variables → Actions → New repository secret`
-
-Name it exactly:
+## Architecture
 
 ```text
-VERCEL_TOKEN
+ChatGPT
+  -> GitHub source / main
+  -> Supabase deploy_control_jobs
+  -> Postgres pg_net trigger
+  -> Supabase Edge Function: vercel-control
+  -> Vercel REST API
+  -> persistent Vercel Project + production deployment
+  -> deploy_control_state
 ```
 
-The Vercel team ID is stored per manifest, so it does not need to be a secret.
+Vercel credentials are stored only in the Supabase private server-side secret store. They are not committed to GitHub and are not exposed to the browser.
 
-### Optional: `DEPLOY_CONTROL_SECRETS`
+The original token used to bootstrap the system was rotated to a dedicated `chatgpt-deploy-control` token and revoked after rotation.
 
-Sensitive app environment variables are referenced by name from manifests. Store them in one JSON-valued Actions secret:
+## Why snapshot deployment exists
+
+The control plane first creates/reconciles a persistent Vercel Project. For deployments it can snapshot the configured GitHub branch and upload those files through Vercel's Files Deployment API. This keeps ChatGPT deployments working even when the Vercel GitHub App is not authorized for the repository.
+
+If the Vercel GitHub App is authorized later, normal push-triggered Vercel deployments can coexist with this control plane.
+
+## Project manifest
+
+`deploy-control/projects/<project>.json` documents the desired project configuration. The live Supabase control plane currently consumes an equivalent manifest payload containing at least:
 
 ```json
 {
-  "KEYID_PROJECT_KEY": "...",
-  "DATABASE_URL": "...",
-  "OTHER_API_KEY": "..."
-}
-```
-
-Secret name:
-
-```text
-DEPLOY_CONTROL_SECRETS
-```
-
-A manifest uses it like this:
-
-```json
-{
-  "key": "KEYID_PROJECT_KEY",
-  "fromSecret": "KEYID_PROJECT_KEY",
-  "type": "sensitive",
-  "target": ["production"],
-  "optional": true
-}
-```
-
-### Optional: `GITHUB_ADMIN_TOKEN`
-
-Only needed if a future manifest sets `git.createIfMissing: true`. Use a fine-grained GitHub PAT with repository Administration/write permission for the target owner, then save it as:
-
-```text
-GITHUB_ADMIN_TOKEN
-```
-
-Without this secret, deploy-control still works for repositories that already exist.
-
-## Manifest
-
-One JSON file lives at `deploy-control/projects/<project>.json`.
-
-Example:
-
-```json
-{
-  "name": "my-app",
-  "teamId": "team_xxx",
+  "name": "research-align",
+  "repo": "stpcoder/research-align",
+  "branch": "main",
   "framework": "nextjs",
-  "git": {
-    "repo": "owner/my-app",
-    "ref": "main",
-    "createIfMissing": false
-  },
-  "rootDirectory": null,
   "publicProduction": true,
-  "deploy": true,
-  "target": "production",
-  "env": [
-    {
-      "key": "NEXT_PUBLIC_API_URL",
-      "value": "https://example.com",
-      "type": "plain",
-      "target": ["production", "preview"]
-    },
-    {
-      "key": "API_SECRET",
-      "fromSecret": "API_SECRET",
-      "type": "sensitive",
-      "target": ["production"]
-    }
-  ]
+  "env": []
 }
 ```
 
-## What `publicProduction` does
+`publicProduction: true` reconciles Vercel Authentication to disabled (`ssoProtection: null`) so participant-facing production URLs remain public.
 
-When `publicProduction` is `true`, the control plane explicitly sends `ssoProtection: null` through the Vercel project API. This disables Vercel Authentication for that project so public participant/customer URLs do not get stuck behind the Vercel login page.
+## Deployment lifecycle
 
-## Execution
+1. ChatGPT updates the GitHub source.
+2. ChatGPT inserts an `apply-project` row into `deploy_control_jobs`.
+3. The database trigger dispatches the job without exposing control credentials.
+4. `vercel-control` creates or reconciles the persistent Vercel Project.
+5. Environment variables are upserted from public values and server-only secret references.
+6. The GitHub branch is snapshotted and uploaded to Vercel.
+7. Vercel builds the production deployment.
+8. `deploy_control_state` records project ID, deployment ID, status and canonical production URL.
+9. The matching job is marked `succeeded` or `failed`.
 
-Changing a manifest automatically runs `.github/workflows/vercel-control.yml`.
+## GitHub Actions fallback
 
-It will:
+`.github/workflows/vercel-control.yml` remains available as a **manual fallback only**. It no longer runs on every push. The normal ChatGPT path does not require a GitHub Actions `VERCEL_TOKEN` secret.
 
-1. Optionally create the GitHub repository.
-2. Create the Vercel project if it does not exist.
-3. Connect it to the GitHub repository.
-4. Reconcile framework/root-directory/deployment-protection settings.
-5. Upsert public and secret environment variables.
-6. Create a production deployment from the configured Git ref.
-7. Poll until the deployment is `READY` or fails.
-8. Write the resolved project/deployment/production URL to `deploy-control/state/<project>.json`.
-9. Commit that state file back to this repository.
+## Current Research Align production
 
-You can also run it manually from GitHub Actions → **Vercel Control Plane** → **Run workflow**.
+The persistent Vercel project is `research-align`, and its canonical production domain is:
 
-## Normal ChatGPT workflow after setup
-
-For an existing GitHub repository, a ChatGPT session only needs to:
-
-1. Write/update application source in GitHub.
-2. Create/update `deploy-control/projects/<name>.json`.
-3. The workflow creates or updates the corresponding Vercel project and deployment.
-4. ChatGPT reads `deploy-control/state/<name>.json` and reports the canonical production URL.
-
-Once Vercel Git Integration is established, ordinary source pushes will also trigger Vercel's normal Git deployments. The control-plane manifest is primarily for project bootstrap and infrastructure/config changes.
+`https://research-align.vercel.app`
