@@ -16,6 +16,9 @@ export type FormField = {
   dates?: string[]
   hours?: string
   blockedSlots?: string[]
+  location?: string
+  instructions?: string
+  bufferMinutes?: number
 }
 export type Study = {
   id: string

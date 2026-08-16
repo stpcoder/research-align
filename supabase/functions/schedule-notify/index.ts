@@ -34,15 +34,13 @@ Deno.serve(async(req:Request)=>{
     const{data:userData,error:userError}=await admin.auth.getUser(jwt)
     if(userError||!userData.user)return json({error:'Invalid session'},401)
     const input=await req.json() as Record<string,unknown>
-    const studyId=String(input.studyId||'')
-    const assignmentId=String(input.assignmentId||'')
-    const mode=String(input.mode||'schedule')==='cancelled'?'cancelled':'schedule'
+    const studyId=String(input.studyId||''),assignmentId=String(input.assignmentId||''),mode=String(input.mode||'schedule')==='cancelled'?'cancelled':'schedule'
     if(!studyId||!assignmentId)return json({error:'studyId and assignmentId are required'},400)
 
     const{data:study,error:studyError}=await admin.from('studies').select('id,title,slug,form_config').eq('id',studyId).eq('owner_id',userData.user.id).maybeSingle()
     if(studyError)throw studyError
     if(!study)return json({error:'Study not found'},404)
-    const{data:assignment,error:assignmentError}=await admin.from('assignments').select('id,study_id,response_id,session_label,starts_at,ends_at,status').eq('id',assignmentId).eq('study_id',studyId).maybeSingle()
+    const{data:assignment,error:assignmentError}=await admin.from('assignments').select('id,study_id,response_id,session_key,session_label,starts_at,ends_at,status').eq('id',assignmentId).eq('study_id',studyId).maybeSingle()
     if(assignmentError)throw assignmentError
     if(!assignment)return json({error:'Assignment not found'},404)
     if(mode==='schedule'&&assignment.status==='cancelled')return json({error:'Cancelled assignment cannot receive a confirmation'},400)
@@ -56,11 +54,13 @@ Deno.serve(async(req:Request)=>{
     const{data:sentRows,error:sentLookupError}=await admin.from('notifications').select('id,metadata,created_at').eq('assignment_id',assignmentId).eq('channel','email').eq('kind',kind).eq('status','sent').order('created_at',{ascending:false})
     if(sentLookupError)throw sentLookupError
     const alreadySent=(sentRows||[]).find((row:any)=>row.metadata?.starts_at===snapshotStart&&row.metadata?.ends_at===snapshotEnd)
-    if(alreadySent)return json({status:'sent',already_sent:true,event:mode==='cancelled'?'cancelled':rowEvent(sentRows||[]),notification_id:alreadySent.id})
+    if(alreadySent)return json({status:'sent',already_sent:true,event:alreadySent.metadata?.event||mode,notification_id:alreadySent.id})
     const event=mode==='cancelled'?'cancelled':(sentRows||[]).length?'changed':'confirmed'
     const destination=addressOf(response.contact_email||'')
+    const sessionField=(study.form_config?.fields||[]).find((field:any)=>field.type==='availability'&&String(field.sessionKey||field.id)===String(assignment.session_key))||null
+    const location=String(sessionField?.location||'').trim(),instructions=String(sessionField?.instructions||'').trim()
 
-    const{data:notification,error:notificationError}=await admin.from('notifications').insert({study_id:studyId,response_id:response.id,assignment_id:assignmentId,channel:'email',destination:destination||'email-unavailable',status:destination?'pending':'skipped',kind,metadata:{event,starts_at:snapshotStart,ends_at:snapshotEnd,session_label:assignment.session_label}}).select('id').single()
+    const{data:notification,error:notificationError}=await admin.from('notifications').insert({study_id:studyId,response_id:response.id,assignment_id:assignmentId,channel:'email',destination:destination||'email-unavailable',status:destination?'pending':'skipped',kind,metadata:{event,starts_at:snapshotStart,ends_at:snapshotEnd,session_label:assignment.session_label,location:location||null}}).select('id').single()
     if(notificationError)throw notificationError
     notificationId=notification.id
     if(!destination){await admin.from('notifications').update({error:'신청 이메일 없음'}).eq('id',notificationId);return json({status:'skipped',reason:'missing_email',event,notification_id:notificationId})}
@@ -70,17 +70,16 @@ Deno.serve(async(req:Request)=>{
     const name=participantName(study,response)
     const duration=Math.max(0,Math.round((new Date(assignment.ends_at).getTime()-new Date(assignment.starts_at).getTime())/60000))
     const subject=event==='cancelled'?`[${study.title}] 일정 취소 안내`:event==='changed'?`[${study.title}] 일정 변경 안내`:`[${study.title}] 일정 확정 안내`
+    const detailLines=[`일시: ${fmt(assignment.starts_at)}`,`소요 시간: ${duration}분`,...(location?[`장소: ${location}`]:[]),...(instructions?[`안내: ${instructions}`]:[])]
     const body=event==='cancelled'
-      ?`안녕하세요, ${name}님.\n\n${study.title}의 ${assignment.session_label} 일정이 취소되었습니다.\n\n기존 일시: ${fmt(assignment.starts_at)}\n\n새로운 일정이 필요한 경우 연구자가 다시 안내드리겠습니다. 문의가 있으면 이 이메일에 답장해 주세요.`
-      :`안녕하세요, ${name}님.\n\n${study.title}의 ${assignment.session_label} 일정이 ${event==='changed'?'변경되었습니다':'확정되었습니다'}.\n\n일시: ${fmt(assignment.starts_at)}\n소요 시간: ${duration}분\n\n일정 변경이 필요하면 이 이메일에 답장해 주세요.`
+      ?`안녕하세요, ${name}님.\n\n${study.title}의 ${assignment.session_label} 일정이 취소되었습니다.\n\n기존 일시: ${fmt(assignment.starts_at)}${location?`\n기존 장소: ${location}`:''}\n\n새로운 일정이 필요한 경우 연구자가 다시 안내드리겠습니다. 문의가 있으면 이 이메일에 답장해 주세요.`
+      :`안녕하세요, ${name}님.\n\n${study.title}의 ${assignment.session_label} 일정이 ${event==='changed'?'변경되었습니다':'확정되었습니다'}.\n\n${detailLines.join('\n')}\n\n일정 변경이 필요하면 이 이메일에 답장해 주세요.`
     const thread=await ensureThread(studyId,response.id,destination,subject)
     const result=await clawFetch(`/inboxes/${encodeURIComponent(material.inbox_id)}/messages`,material.api_token,{method:'POST',body:JSON.stringify({to:destination,subject,text:body})})
-    const providerId=result.message_id??result.id??null
-    const sentAt=result.sent_at||new Date().toISOString()
-    const baseMetadata={event,starts_at:snapshotStart,ends_at:snapshotEnd,session_label:assignment.session_label,provider_status:result.status??null,thread_id:thread.id}
+    const providerId=result.message_id??result.id??null,sentAt=result.sent_at||new Date().toISOString()
+    const baseMetadata={event,starts_at:snapshotStart,ends_at:snapshotEnd,session_label:assignment.session_label,location:location||null,provider_status:result.status??null,thread_id:thread.id}
     const{error:updateError}=await admin.from('notifications').update({status:'sent',provider_message_id:providerId,sent_at:sentAt,error:null,metadata:baseMetadata}).eq('id',notificationId)
     if(updateError)throw updateError
-
     const{error:messageError}=await admin.from('contact_messages').insert({thread_id:thread.id,direction:'outbound',body,provider_message_id:providerId,sent_at:sentAt,metadata:{provider:'clawmail',source:'schedule_notification',assignment_id:assignmentId,event,to:destination,subject,status:result.status??null}})
     if(messageError)await admin.from('notifications').update({metadata:{...baseMetadata,contact_log_error:messageError.message}}).eq('id',notificationId)
     else await admin.from('contact_threads').update({last_message_at:sentAt}).eq('id',thread.id)
@@ -91,5 +90,3 @@ Deno.serve(async(req:Request)=>{
     return json({status:'failed',error:message,notification_id:notificationId})
   }
 })
-
-function rowEvent(rows:any[]){return rows.length?'changed':'confirmed'}
