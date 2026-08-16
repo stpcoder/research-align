@@ -10,6 +10,10 @@ if (!text.includes("import ResponseManager from '@/components/ResponseManager'")
   )
 }
 
+const oldResponses = `function Responses({study}:{study:Study}){const [rows,setRows]=useState<ResponseRow[]>([]);useEffect(()=>{supabase.from('responses').select('*').eq('study_id',study.id).order('submitted_at',{ascending:false}).then(({data})=>setRows((data||[]) as ResponseRow[]))},[study.id]);const fields=study.form_config.fields;return <div className="card"><div className="between row"><div><h2>Responses</h2><p className="muted small">{rows.length}명 제출</p></div></div>{rows.map(r=><div className="schedule-row" key={r.id}><div><b>{String(r.answers[fields.find(f=>f.type==='short')?.id||'']||'참가자')}</b><span className="muted small">{r.contact_email||r.contact_phone}</span></div><div className="muted small">가능 시간 {Object.values(r.availability||{}).flat().length}개 · {fmt(r.submitted_at)}</div><span className="pill">submitted</span></div>)}{!rows.length&&<div className="empty">아직 응답이 없습니다.</div>}</div>}`
+const newResponses = `function Responses({study}:{study:Study}){return <ResponseManager study={study}/>} `
+text = text.replace(oldResponses, newResponses)
+
 const replacements = new Map([
   ['Research operations, without the spreadsheet.', '실험 운영을 한 곳에서 관리하세요.'],
   ['연구자는 각자 로그인하고 자신의 여러 실험만 관리합니다.', '참가자 모집, 신청서 작성, 일정 조율, 연락까지 한 곳에서 관리할 수 있습니다.'],
@@ -22,8 +26,6 @@ const replacements = new Map([
   ["study.status==='published'?'모집 중지':'Publish'", "study.status==='published'?'모집 중지':'모집 시작'"],
   ['<label>연구 제목', '<label>실험 제목'],
   ['Google Form처럼 필요한 항목을 자유롭게 쌓습니다. 시간 선택만 scheduling-aware field입니다.', '필요한 문항을 추가하고 순서를 정리할 수 있습니다.'],
-  ['<h2>Responses</h2>', '<h2>신청자</h2>'],
-  ['<span className="pill">submitted</span>', '<span className="pill">신청 완료</span>'],
   ['Study contact identity', '연구용 이메일'],
   ['연구별 KeyID identity를 Next.js backend에서만 사용합니다. 개인 연구자의 메일/전화번호는 참가자에게 노출되지 않습니다.', '참가자 연락에 사용할 연구 전용 이메일입니다. 연구자의 개인 이메일 주소는 참가자에게 공개되지 않습니다.'],
   ['KeyID 연구용 주소 연결', '연구용 이메일 연결'],
@@ -43,9 +45,5 @@ const replacements = new Map([
 ])
 
 for (const [from, to] of replacements) text = text.replaceAll(from, to)
-
-const oldResponses = `function Responses({study}:{study:Study}){const [rows,setRows]=useState<ResponseRow[]>([]);useEffect(()=>{supabase.from('responses').select('*').eq('study_id',study.id).order('submitted_at',{ascending:false}).then(({data})=>setRows((data||[]) as ResponseRow[]))},[study.id]);const fields=study.form_config.fields;return <div className="card"><div className="between row"><div><h2>Responses</h2><p className="muted small">{rows.length}명 제출</p></div></div>{rows.map(r=><div className="schedule-row" key={r.id}><div><b>{String(r.answers[fields.find(f=>f.type==='short')?.id||'']||'참가자')}</b><span className="muted small">{r.contact_email||r.contact_phone}</span></div><div className="muted small">가능 시간 {Object.values(r.availability||{}).flat().length}개 · {fmt(r.submitted_at)}</div><span className="pill">submitted</span></div>)}{!rows.length&&<div className="empty">아직 응답이 없습니다.</div>}</div>}`
-const newResponses = `function Responses({study}:{study:Study}){return <ResponseManager study={study}/>} `
-text = text.replace(oldResponses, newResponses)
 
 fs.writeFileSync(file, text)
