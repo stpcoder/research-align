@@ -5,9 +5,22 @@ import { supabase } from '@/lib/supabase'
 import type { FormField, Study } from '@/lib/types'
 
 const newId = () => crypto.randomUUID()
-const fieldTypes:[FormField['type'],string][] = [
-  ['short','짧은 답변'],['long','긴 답변'],['email','이메일'],['phone','전화번호'],
-  ['radio','객관식'],['checkbox','복수 선택'],['text','안내문'],['availability','시간 선택'],
+
+const fieldMeta:Record<FormField['type'],{label:string;description:string}> = {
+  short:{label:'짧은 답변',description:'이름, 소속 등 한 줄로 받는 정보'},
+  long:{label:'긴 답변',description:'추가 의견처럼 긴 내용을 받는 문항'},
+  email:{label:'이메일',description:'참가자 이메일 주소를 받는 문항'},
+  phone:{label:'전화번호',description:'참가자 전화번호를 받는 문항'},
+  radio:{label:'객관식',description:'여러 선택지 중 하나만 선택'},
+  checkbox:{label:'복수 선택',description:'여러 선택지를 동시에 선택'},
+  text:{label:'안내문',description:'참가자에게 설명만 보여주는 영역'},
+  availability:{label:'시간 선택',description:'참여 가능한 날짜와 시간을 받는 문항'},
+}
+
+const addGroups:{title:string;types:FormField['type'][]}[] = [
+  {title:'기본 정보',types:['short','long','email','phone','text']},
+  {title:'선택 문항',types:['radio','checkbox']},
+  {title:'일정',types:['availability']},
 ]
 
 function freshAvailability():FormField {
@@ -81,12 +94,12 @@ function AvailabilityEditor({field,onChange}:{field:FormField,onChange:(patch:Pa
 
   return <div className="availability-editor">
     <div className="availability-config-grid">
-      <label>세션 이름<input value={field.sessionLabel||''} onChange={e=>onChange({sessionLabel:e.target.value})}/></label>
-      <label>소요 시간<input type="number" min={5} value={field.duration||60} onChange={e=>onChange({duration:+e.target.value})}/><span className="field-hint">분</span></label>
-      <label>시간 간격<select value={field.stepMinutes||30} onChange={e=>onChange({stepMinutes:+e.target.value})}><option value={15}>15분</option><option value={30}>30분</option><option value={60}>60분</option></select></label>
-      <label>최소 선택<input type="number" min={1} value={field.min||1} onChange={e=>onChange({min:+e.target.value})}/></label>
-      <label>최대 선택<input type="number" min={1} value={field.max||''} placeholder="제한 없음" onChange={e=>onChange({max:e.target.value?+e.target.value:null})}/></label>
-      <label>선호 순위<input type="number" min={0} value={field.rankTop||0} onChange={e=>onChange({rankTop:+e.target.value})}/><span className="field-hint">0이면 사용 안 함</span></label>
+      <label><span>세션 이름</span><small>예: 사전 교육, 본 실험</small><input value={field.sessionLabel||''} onChange={e=>onChange({sessionLabel:e.target.value})}/></label>
+      <label><span>소요 시간</span><small>한 세션에 필요한 시간</small><input type="number" min={5} value={field.duration||60} onChange={e=>onChange({duration:+e.target.value})}/><span className="field-hint">분</span></label>
+      <label><span>시간 간격</span><small>참가자에게 보여줄 시작 시간 간격</small><select value={field.stepMinutes||30} onChange={e=>onChange({stepMinutes:+e.target.value})}><option value={15}>15분</option><option value={30}>30분</option><option value={60}>60분</option></select></label>
+      <label><span>최소 선택</span><small>반드시 골라야 하는 최소 개수</small><input type="number" min={1} value={field.min||1} onChange={e=>onChange({min:+e.target.value})}/></label>
+      <label><span>최대 선택</span><small>비워두면 제한 없음</small><input type="number" min={1} value={field.max||''} placeholder="제한 없음" onChange={e=>onChange({max:e.target.value?+e.target.value:null})}/></label>
+      <label><span>선호 순위</span><small>상위 몇 개 시간을 순위로 받을지</small><input type="number" min={0} value={field.rankTop||0} onChange={e=>onChange({rankTop:+e.target.value})}/><span className="field-hint">0이면 사용 안 함</span></label>
     </div>
 
     <div className="availability-step">
@@ -152,30 +165,100 @@ export default function FormBuilderManager({study,refresh}:{study:Study,refresh:
     setFields(v=>[...v,base])
   }
 
-  return <div className="form-builder">
-    <div className="stack">
-      <div className="card stack">
-        <label>실험 제목<input value={title} onChange={e=>setTitle(e.target.value)}/></label>
-        <label>공개 URL<input value={slug} onChange={e=>setSlug(e.target.value)}/></label>
-        <label>실험 안내<textarea value={description} onChange={e=>setDescription(e.target.value)}/></label>
+  return <div className="builder-shell">
+    <div className="builder-page-head">
+      <div>
+        <span className="builder-kicker">신청서 편집</span>
+        <h2>참가자 신청 페이지 구성</h2>
+        <p className="muted">참가자에게 보일 기본 정보와 질문을 순서대로 구성하세요.</p>
       </div>
-
-      {fields.map((field,index)=><div className="card field-card" key={field.id}>
-        <div className="field-head"><span className="field-type">{fieldTypes.find(x=>x[0]===field.type)?.[1]}</span><div className="row"><button type="button" className="btn ghost small" disabled={index===0} onClick={()=>setFields(v=>{const next=[...v];if(index>0)[next[index-1],next[index]]=[next[index],next[index-1]];return next})}>↑</button><button type="button" className="btn danger small" onClick={()=>setFields(v=>v.filter(x=>x.id!==field.id))}>삭제</button></div></div>
-        <div className="stack">
-          <label>문항 제목<input value={field.label} onChange={e=>patch(index,{label:e.target.value})}/></label>
-          {field.type!=='text'&&<label>설명<input value={field.description||''} onChange={e=>patch(index,{description:e.target.value})}/></label>}
-          {field.type!=='text'&&<label className="checkline"><input type="checkbox" checked={!!field.required} onChange={e=>patch(index,{required:e.target.checked})}/> 필수 항목</label>}
-          {['radio','checkbox'].includes(field.type)&&<label>선택지 (한 줄에 하나씩)<textarea value={(field.options||[]).join('\n')} onChange={e=>patch(index,{options:e.target.value.split('\n').map(x=>x.trim()).filter(Boolean)})}/></label>}
-          {field.type==='availability'&&<AvailabilityEditor field={field} onChange={value=>patch(index,value)}/>} 
-        </div>
-      </div>)}
+      <button type="button" className="btn builder-save" onClick={save} disabled={saving}>{saving?'저장 중…':'변경사항 저장'}</button>
     </div>
 
-    <aside className="card side-panel">
-      <h3>문항 추가</h3><p className="muted small">필요한 항목을 선택하면 신청서 맨 아래에 추가됩니다.</p>
-      <div className="type-list">{fieldTypes.map(([type,label])=><button type="button" key={type} className="type-button" onClick={()=>addField(type)}>{label}</button>)}</div>
-      <button type="button" className="btn" style={{width:'100%',marginTop:14}} onClick={save}>{saving?'저장 중…':'변경사항 저장'}</button>
-    </aside>
+    <div className="builder-layout">
+      <main className="builder-main">
+        <section className="builder-section builder-basic-section">
+          <div className="builder-section-head">
+            <span className="builder-section-index">기본 정보</span>
+            <div><h3>참가자에게 보이는 실험 정보</h3><p className="muted small">신청 페이지 상단에 표시되는 제목과 설명입니다.</p></div>
+          </div>
+          <div className="builder-basic-fields">
+            <label className="builder-control builder-control-major">
+              <span className="builder-control-title">실험 이름</span>
+              <small>참가자가 신청 페이지에서 가장 먼저 보는 이름입니다.</small>
+              <input className="builder-title-input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="예: AI 학습 실험"/>
+            </label>
+            <label className="builder-control">
+              <span className="builder-control-title">신청 링크</span>
+              <small>참가자에게 공유할 주소의 마지막 부분입니다.</small>
+              <div className="builder-slug-input"><span>/s/</span><input value={slug} onChange={e=>setSlug(e.target.value)}/></div>
+            </label>
+            <label className="builder-control">
+              <span className="builder-control-title">신청 페이지 소개</span>
+              <small>실험 목적, 소요 시간, 참여 방식처럼 참가자가 알아야 할 내용을 적으세요.</small>
+              <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="참가자에게 보여줄 실험 안내를 입력하세요."/>
+            </label>
+          </div>
+        </section>
+
+        <div className="builder-questions-head">
+          <div><span className="builder-kicker">신청 문항</span><h3>{fields.length}개의 문항</h3></div>
+          <span className="muted small">위에서 아래 순서대로 참가자에게 표시됩니다.</span>
+        </div>
+
+        <div className="builder-questions">
+          {fields.map((field,index)=>{
+            const meta=fieldMeta[field.type]
+            const contentLabel=field.type==='text'?'안내 문구':'질문'
+            return <section className="builder-question" key={field.id}>
+              <header className="builder-question-head">
+                <div className="builder-question-identity">
+                  <span className="builder-question-number">문항 {index+1}</span>
+                  <strong>{meta.label}</strong>
+                  <span className="muted small">{meta.description}</span>
+                </div>
+                <div className="row builder-question-actions">
+                  <button type="button" className="btn ghost small" disabled={index===0} onClick={()=>setFields(v=>{const next=[...v];if(index>0)[next[index-1],next[index]]=[next[index],next[index-1]];return next})}>위로</button>
+                  <button type="button" className="btn danger small" onClick={()=>setFields(v=>v.filter(x=>x.id!==field.id))}>삭제</button>
+                </div>
+              </header>
+
+              <div className="builder-question-body">
+                <label className="builder-control builder-control-major">
+                  <span className="builder-control-title">{contentLabel}</span>
+                  <small>{field.type==='text'?'참가자에게 그대로 보여줄 안내 문장을 입력하세요.':'참가자에게 보여줄 질문 문장을 입력하세요.'}</small>
+                  <input className="builder-question-input" value={field.label} onChange={e=>patch(index,{label:e.target.value})}/>
+                </label>
+                {field.type!=='text'&&<label className="builder-control">
+                  <span className="builder-control-title">도움말</span>
+                  <small>필요한 경우 질문 아래에 짧은 설명을 추가하세요.</small>
+                  <input value={field.description||''} onChange={e=>patch(index,{description:e.target.value})} placeholder="선택 사항"/>
+                </label>}
+                {field.type!=='text'&&<label className="checkline builder-required"><input type="checkbox" checked={!!field.required} onChange={e=>patch(index,{required:e.target.checked})}/> <span><strong>필수 응답</strong><small>참가자가 이 문항에 반드시 답해야 합니다.</small></span></label>}
+                {['radio','checkbox'].includes(field.type)&&<label className="builder-control"><span className="builder-control-title">선택지</span><small>한 줄에 하나씩 입력하세요.</small><textarea value={(field.options||[]).join('\n')} onChange={e=>patch(index,{options:e.target.value.split('\n').map(x=>x.trim()).filter(Boolean)})}/></label>}
+                {field.type==='availability'&&<AvailabilityEditor field={field} onChange={value=>patch(index,value)}/>} 
+              </div>
+            </section>
+          })}
+          {!fields.length&&<div className="builder-empty"><strong>아직 문항이 없습니다.</strong><span className="muted small">오른쪽에서 필요한 문항을 추가하세요.</span></div>}
+        </div>
+      </main>
+
+      <aside className="builder-add-panel">
+        <div className="builder-add-heading"><span className="builder-kicker">문항 추가</span><h3>무엇을 받을까요?</h3><p className="muted small">필요한 항목을 누르면 신청서 맨 아래에 추가됩니다.</p></div>
+        <div className="builder-add-groups">
+          {addGroups.map(group=><section className="builder-add-group" key={group.title}>
+            <div className="builder-add-group-title">{group.title}</div>
+            {group.types.map(type=>{
+              const meta=fieldMeta[type]
+              return <button type="button" key={type} className="builder-add-row" onClick={()=>addField(type)}>
+                <span className="builder-add-plus">＋</span>
+                <span><strong>{meta.label}</strong><small>{meta.description}</small></span>
+              </button>
+            })}
+          </section>)}
+        </div>
+      </aside>
+    </div>
   </div>
 }
