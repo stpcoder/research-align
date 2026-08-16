@@ -177,9 +177,7 @@ async function provision(studyId: string, user: { email?: string | null }, study
 
 function extractMessages(data: any): any[] {
   if (Array.isArray(data)) return data
-  for (const key of ['messages', 'items', 'results']) {
-    if (Array.isArray(data?.[key])) return data[key]
-  }
+  for (const key of ['messages', 'items', 'results']) if (Array.isArray(data?.[key])) return data[key]
   if (Array.isArray(data?.data)) return data.data
   if (data?.data && typeof data.data === 'object') return extractMessages(data.data)
   return []
@@ -187,9 +185,7 @@ function extractMessages(data: any): any[] {
 
 function addressOf(value: any): string {
   if (Array.isArray(value)) return addressOf(value[0])
-  const raw = typeof value === 'string'
-    ? value
-    : value?.email ?? value?.address ?? value?.value ?? ''
+  const raw = typeof value === 'string' ? value : value?.email ?? value?.address ?? value?.value ?? ''
   const match = String(raw).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
   return (match?.[0] || String(raw)).trim().toLowerCase()
 }
@@ -198,12 +194,10 @@ function messageBody(message: any): string {
   const value = message.text ?? message.body ?? message.text_body ?? message.content?.text ?? message.content?.body ?? ''
   return typeof value === 'string' ? value : JSON.stringify(value ?? '')
 }
-
 function messageId(message: any): string | null {
   const value = message.message_id ?? message.id ?? message.messageId
   return value ? String(value) : null
 }
-
 function messageTime(message: any): string {
   const value = message.received_at ?? message.sent_at ?? message.created_at ?? message.date
   const parsed = value ? new Date(value) : new Date()
@@ -218,31 +212,22 @@ async function syncInbox(studyId: string) {
   const messages = extractMessages(inbox)
 
   const { data: responses, error: responseError } = await admin
-    .from('responses')
-    .select('id,contact_email')
-    .eq('study_id', studyId)
+    .from('responses').select('id,contact_email').eq('study_id', studyId)
   if (responseError) throw responseError
-
   const responseByEmail = new Map<string,string>()
-  for (const row of responses || []) {
-    if (row.contact_email) responseByEmail.set(String(row.contact_email).toLowerCase(), row.id)
-  }
+  for (const row of responses || []) if (row.contact_email) responseByEmail.set(String(row.contact_email).toLowerCase(), row.id)
 
   const { data: threads, error: threadError } = await admin
     .from('contact_threads')
-    .select('id,response_id,participant_address,subject,last_message_at')
+    .select('id,response_id,participant_address,requester_name,subject,status,source,last_message_at')
     .eq('study_id', studyId)
     .eq('channel', 'email')
   if (threadError) throw threadError
-
   const threadByEmail = new Map<string,any>()
-  for (const thread of threads || []) {
-    threadByEmail.set(String(thread.participant_address).toLowerCase(), thread)
-  }
+  for (const thread of threads || []) threadByEmail.set(String(thread.participant_address).toLowerCase(), thread)
 
   let imported = 0
   let skipped = 0
-
   for (const message of messages) {
     const from = addressOf(message.from ?? message.sender)
     const to = addressOf(message.to ?? message.recipient)
@@ -250,13 +235,12 @@ async function syncInbox(studyId: string) {
     const isOutbound = direction === 'outbound' || direction === 'sent' || from === material.address.toLowerCase()
     if (isOutbound || !from || !from.includes('@')) { skipped++; continue }
 
-    // The StudyForm contact view is participant-centric. Ignore arbitrary external mail.
     const responseId = responseByEmail.get(from)
-    if (!responseId) { skipped++; continue }
+    let thread = threadByEmail.get(from)
+    // Accept registered participants and people who already opened an anonymous inquiry thread.
+    if (!responseId && !thread) { skipped++; continue }
 
     const providerId = messageId(message)
-    let thread = threadByEmail.get(from)
-
     if (!thread) {
       const { data: created, error: createError } = await admin
         .from('contact_threads')
@@ -266,10 +250,11 @@ async function syncInbox(studyId: string) {
           channel: 'email',
           participant_address: from,
           subject: String(message.subject || '참가자 이메일'),
-          status: 'open',
+          status: 'pending',
+          source: 'participant',
           last_message_at: messageTime(message),
         })
-        .select('id,response_id,participant_address,subject,last_message_at')
+        .select('id,response_id,participant_address,requester_name,subject,status,source,last_message_at')
         .single()
       if (createError) throw createError
       thread = created
@@ -278,11 +263,7 @@ async function syncInbox(studyId: string) {
 
     if (providerId) {
       const { data: existingMessage, error: lookupError } = await admin
-        .from('contact_messages')
-        .select('id')
-        .eq('thread_id', thread.id)
-        .eq('provider_message_id', providerId)
-        .maybeSingle()
+        .from('contact_messages').select('id').eq('thread_id', thread.id).eq('provider_message_id', providerId).maybeSingle()
       if (lookupError) throw lookupError
       if (existingMessage) { skipped++; continue }
     }
@@ -294,13 +275,9 @@ async function syncInbox(studyId: string) {
       provider_message_id: providerId,
       sent_at: messageTime(message),
       metadata: {
-        provider: 'clawmail',
-        subject: message.subject || null,
-        from,
-        to: to || material.address,
+        provider: 'clawmail', subject: message.subject || null, from, to: to || material.address,
         provider_thread_id: message.thread_id ?? message.threadId ?? null,
-        status: message.status ?? null,
-        safety: message.safety ?? null,
+        status: message.status ?? null, safety: message.safety ?? null,
       },
     })
     if (insertError) {
@@ -310,10 +287,7 @@ async function syncInbox(studyId: string) {
 
     const { error: updateError } = await admin
       .from('contact_threads')
-      .update({
-        last_message_at: messageTime(message),
-        subject: thread.subject || message.subject || '참가자 이메일',
-      })
+      .update({ last_message_at: messageTime(message), subject: thread.subject || message.subject || '참가자 이메일', status: 'pending' })
       .eq('id', thread.id)
     if (updateError) throw updateError
     imported++
@@ -329,31 +303,19 @@ async function sendMessage(studyId: string, threadId: string, body: string, subj
   if (!material) throw new Error('Research email is not connected')
 
   const { data: thread, error: threadError } = await admin
-    .from('contact_threads')
-    .select('id,participant_address,subject')
-    .eq('id', threadId)
-    .eq('study_id', studyId)
-    .eq('channel', 'email')
-    .maybeSingle()
+    .from('contact_threads').select('id,participant_address,subject').eq('id', threadId).eq('study_id', studyId).eq('channel', 'email').maybeSingle()
   if (threadError) throw threadError
   if (!thread) throw new Error('Email conversation was not found')
 
   const to = addressOf(thread.participant_address)
   if (!to.includes('@')) throw new Error('Participant email address is invalid')
-
-  const payload = {
-    to,
-    subject: subject || thread.subject || 'StudyForm 연구 안내',
-    text: body,
-  }
+  const payload = { to, subject: subject || thread.subject || 'StudyForm 연구 안내', text: body }
   const result = await clawFetch(`/inboxes/${encodeURIComponent(material.inbox_id)}/messages`, material.api_token, {
-    method: 'POST',
-    body: JSON.stringify(payload),
+    method: 'POST', body: JSON.stringify(payload),
   })
 
   const providerId = result.message_id ?? result.id ?? null
   const sentAt = result.sent_at || new Date().toISOString()
-
   const { error: messageError } = await admin.from('contact_messages').insert({
     thread_id: thread.id,
     direction: 'outbound',
@@ -361,28 +323,19 @@ async function sendMessage(studyId: string, threadId: string, body: string, subj
     provider_message_id: providerId,
     sent_at: sentAt,
     metadata: {
-      provider: 'clawmail',
-      to,
-      subject: payload.subject,
-      status: result.status ?? null,
-      provider_thread_id: result.thread_id ?? null,
-      safety: result.safety ?? null,
+      provider: 'clawmail', to, subject: payload.subject, status: result.status ?? null,
+      provider_thread_id: result.thread_id ?? null, safety: result.safety ?? null,
     },
   })
   if (messageError) throw messageError
 
   const { error: updateError } = await admin
     .from('contact_threads')
-    .update({ last_message_at: sentAt, subject: payload.subject })
+    .update({ last_message_at: sentAt, subject: payload.subject, status: 'open' })
     .eq('id', thread.id)
   if (updateError) throw updateError
 
-  return {
-    message_id: providerId,
-    status: result.status ?? null,
-    sent_at: result.sent_at ?? null,
-    thread_id: result.thread_id ?? null,
-  }
+  return { message_id: providerId, status: result.status ?? null, sent_at: result.sent_at ?? null, thread_id: result.thread_id ?? null }
 }
 
 Deno.serve(async (req: Request) => {
@@ -394,17 +347,11 @@ Deno.serve(async (req: Request) => {
     const action = String(input.action || '')
     const studyId = String(input.studyId || '')
     if (!studyId) return json({ error: 'studyId is required' }, 400)
-
     const { user, study } = await authContext(req, studyId)
 
     if (action === 'status') {
       const material = await getMaterial(studyId)
-      return json({
-        connected: !!material,
-        email: material?.address || null,
-        inbox_id: material?.inbox_id || null,
-        last_synced_at: material?.last_synced_at || null,
-      })
+      return json({ connected: !!material, email: material?.address || null, inbox_id: material?.inbox_id || null, last_synced_at: material?.last_synced_at || null })
     }
     if (action === 'provision') return json(await provision(studyId, user, study), 201)
     if (action === 'sync') return json(await syncInbox(studyId))
@@ -417,11 +364,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Unknown action' }, 400)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'ClawMail request failed'
-    const status = /Unauthorized|Invalid session/i.test(message)
-      ? 401
-      : /not found|not owned/i.test(message)
-        ? 404
-        : 500
+    const status = /Unauthorized|Invalid session/i.test(message) ? 401 : /not found|not owned/i.test(message) ? 404 : 500
     return json({ error: message }, status)
   }
 })
