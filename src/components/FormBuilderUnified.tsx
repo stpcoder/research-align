@@ -39,7 +39,7 @@ function ChoiceEditor({options,onChange}:{options:string[];onChange:(options:str
   return <div className="af-options-editor">
     <div className="af-options-head"><div><strong>선택지</strong><span>각 선택지를 하나씩 추가하고 순서를 바꿀 수 있습니다.</span></div><button type="button" className="btn secondary small" onClick={add}>+ 선택지 추가</button></div>
     <div className="af-options-list">
-      {options.map((option,index)=><div className={`af-option-row ${dragIndex===index?'dragging':''}`} key={`${index}-${option}`} onDragOver={e=>e.preventDefault()} onDrop={()=>drop(index)}>
+      {options.map((option,index)=><div className={`af-option-row ${dragIndex===index?'dragging':''}`} key={index} onDragOver={e=>e.preventDefault()} onDrop={()=>drop(index)}>
         <button type="button" className="af-option-handle" draggable onDragStart={e=>{setDragIndex(index);e.dataTransfer.effectAllowed='move'}} onDragEnd={()=>setDragIndex(null)} aria-label={`${index+1}번 선택지 순서 변경`} title="드래그해서 순서 변경">⋮⋮</button>
         <span className="af-option-number">{index+1}</span>
         <input value={option} onChange={e=>update(index,e.target.value)} placeholder={`선택지 ${index+1}`}/>
