@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { ResponseRow, Study } from '@/lib/types'
 
@@ -36,7 +36,10 @@ export default function ContactManager({study}:{study:Study}) {
   const [body,setBody] = useState('')
   const [subject,setSubject] = useState(`${study.title} 안내`)
   const [busy,setBusy] = useState(false)
+  const [syncing,setSyncing] = useState(false)
+  const [lastSyncedAt,setLastSyncedAt] = useState<string|null>(null)
   const [notice,setNotice] = useState('')
+  const syncLock = useRef(false)
 
   const nameField = useMemo(
     () => study.form_config.fields.find(f=>f.type==='short' && /이름|name/i.test(f.label))
@@ -66,25 +69,53 @@ export default function ContactManager({study}:{study:Study}) {
 
   function threadFor(row:ResponseRow|null) {
     if (!row) return null
-    return threads.find(t=>t.channel==='email' && (t.response_id===row.id || (!!row.contact_email && t.participant_address===row.contact_email))) || null
+    return threads.find(t=>t.channel==='email' && (t.response_id===row.id || (!!row.contact_email && t.participant_address.toLowerCase()===row.contact_email.toLowerCase()))) || null
   }
 
   const selectedThread = threadFor(selected)
+
+  async function invokeClawMail(payload:Record<string,unknown>) {
+    const {data:{session}}=await supabase.auth.getSession()
+    if (!session?.access_token) throw new Error('로그인이 필요합니다.')
+    const {data,error}=await supabase.functions.invoke('clawmail', {
+      body:payload,
+      headers:{Authorization:`Bearer ${session.access_token}`},
+    })
+    if (error) throw error
+    if (data?.error) throw new Error(String(data.error))
+    return data as Record<string,any>
+  }
 
   async function load() {
     const [{data:r},{data:t},{data:c}] = await Promise.all([
       supabase.from('responses').select('*').eq('study_id',study.id).order('submitted_at'),
       supabase.from('contact_threads').select('*').eq('study_id',study.id).order('last_message_at',{ascending:false,nullsFirst:false}),
-      supabase.from('study_contact_channels').select('address').eq('study_id',study.id).eq('provider','keyid').eq('channel','email').eq('status','active').maybeSingle(),
+      supabase.from('study_contact_channels').select('address').eq('study_id',study.id).eq('provider','clawmail').eq('channel','email').eq('status','active').maybeSingle(),
     ])
     const nextResponses=(r||[]) as ResponseRow[]
     setResponses(nextResponses)
     setThreads((t||[]) as ContactThread[])
     setIdentityEmail(c?.address || null)
     setSelectedId(current=>current || nextResponses[0]?.id || '')
+    return c?.address || null
   }
 
-  useEffect(()=>{ load() },[study.id])
+  useEffect(()=>{
+    let cancelled=false
+    ;(async()=>{
+      const address=await load()
+      if (address && !cancelled) await syncMail(false)
+    })()
+    return()=>{cancelled=true}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[study.id])
+
+  useEffect(()=>{
+    if (!identityEmail) return
+    const timer=window.setInterval(()=>{ void syncMail(false) },60_000)
+    return()=>window.clearInterval(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[study.id,identityEmail])
 
   useEffect(()=>{
     const thread=threadFor(selected)
@@ -93,24 +124,40 @@ export default function ContactManager({study}:{study:Study}) {
       return
     }
     supabase.from('contact_messages').select('*').eq('thread_id',thread.id).order('sent_at').then(({data})=>setMessages((data||[]) as ContactMessage[]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[selectedId,threads])
 
   async function connectResearchEmail() {
+    if (busy) return
     setBusy(true); setNotice('')
-    const {data:{session}}=await supabase.auth.getSession()
-    const response=await fetch('/api/keyid/provision',{
-      method:'POST',
-      headers:{'content-type':'application/json',Authorization:`Bearer ${session?.access_token}`},
-      body:JSON.stringify({studyId:study.id}),
-    })
-    const data=await response.json()
-    setBusy(false)
-    if (!response.ok) {
-      setNotice(data.error || '연구용 이메일을 연결하지 못했습니다.')
-      return
+    try {
+      const data=await invokeClawMail({action:'provision',studyId:study.id})
+      setIdentityEmail(data.email || null)
+      setNotice(data.existing ? '연구용 이메일이 연결되어 있습니다.' : `연구용 이메일 ${data.email}을 만들었습니다.`)
+      await load()
+      await syncMail(false)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '연구용 이메일을 연결하지 못했습니다.')
+    } finally {
+      setBusy(false)
     }
-    setIdentityEmail(data.email || null)
-    await load()
+  }
+
+  async function syncMail(showNotice=true) {
+    if (syncLock.current || !identityEmail) return
+    syncLock.current=true
+    setSyncing(true)
+    try {
+      const data=await invokeClawMail({action:'sync',studyId:study.id})
+      setLastSyncedAt(data.synced_at || new Date().toISOString())
+      if (showNotice) setNotice(data.imported ? `새 이메일 ${data.imported}개를 가져왔습니다.` : '새 이메일이 없습니다.')
+      await load()
+    } catch (error) {
+      if (showNotice) setNotice(error instanceof Error ? error.message : '새 이메일을 확인하지 못했습니다.')
+    } finally {
+      syncLock.current=false
+      setSyncing(false)
+    }
   }
 
   async function ensureEmailThread(row:ResponseRow) {
@@ -141,21 +188,15 @@ export default function ContactManager({study}:{study:Study}) {
     setBusy(true); setNotice('')
     try {
       const thread=await ensureEmailThread(selected)
-      const {data:{session}}=await supabase.auth.getSession()
-      const response=await fetch('/api/keyid/send',{
-        method:'POST',
-        headers:{'content-type':'application/json',Authorization:`Bearer ${session?.access_token}`},
-        body:JSON.stringify({
-          studyId:study.id,
-          threadId:thread.id,
-          to:selected.contact_email,
-          subject:thread.subject || subject || `${study.title} 안내`,
-          body:body.trim(),
-        }),
+      const data=await invokeClawMail({
+        action:'send',
+        studyId:study.id,
+        threadId:thread.id,
+        subject:thread.subject || subject || `${study.title} 안내`,
+        body:body.trim(),
       })
-      const data=await response.json()
-      if (!response.ok) throw new Error(data.error || '이메일 발송에 실패했습니다.')
       setBody('')
+      setNotice(data.status ? `이메일을 보냈습니다. (${data.status})` : '이메일을 보냈습니다.')
       await load()
       const {data:m}=await supabase.from('contact_messages').select('*').eq('thread_id',thread.id).order('sent_at')
       setMessages((m||[]) as ContactMessage[])
@@ -176,9 +217,12 @@ export default function ContactManager({study}:{study:Study}) {
         <span className={`status-dot ${identityEmail?'connected':''}`}/>
         <div>
           <strong>{identityEmail ? '연구용 이메일 연결됨' : '연구용 이메일 미연결'}</strong>
-          <span className="muted small">{identityEmail || '이메일을 보내려면 한 번 연결이 필요합니다.'}</span>
+          <span className="muted small">{identityEmail || '연구별 @clawmail.me 이메일을 만들 수 있습니다.'}</span>
+          {lastSyncedAt&&<span className="muted small">최근 확인 {fmt(lastSyncedAt)}</span>}
         </div>
-        {!identityEmail&&<button className="btn secondary small" onClick={connectResearchEmail} disabled={busy}>{busy?'연결 중…':'연결'}</button>}
+        {identityEmail
+          ? <button className="btn secondary small" onClick={()=>syncMail(true)} disabled={syncing}>{syncing?'확인 중…':'새 메일 확인'}</button>
+          : <button className="btn secondary small" onClick={connectResearchEmail} disabled={busy}>{busy?'연결 중…':'연결'}</button>}
       </div>
     </div>
 
