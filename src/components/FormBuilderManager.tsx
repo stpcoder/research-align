@@ -4,261 +4,93 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { FormField, Study } from '@/lib/types'
 
-const newId = () => crypto.randomUUID()
-
-const fieldMeta:Record<FormField['type'],{label:string;description:string}> = {
-  short:{label:'짧은 답변',description:'이름, 소속 등 한 줄로 받는 정보'},
-  long:{label:'긴 답변',description:'추가 의견처럼 긴 내용을 받는 문항'},
-  email:{label:'이메일',description:'참가자 이메일 주소를 받는 문항'},
-  phone:{label:'전화번호',description:'참가자 전화번호를 받는 문항'},
-  radio:{label:'객관식',description:'여러 선택지 중 하나만 선택'},
-  checkbox:{label:'복수 선택',description:'여러 선택지를 동시에 선택'},
-  text:{label:'안내문',description:'참가자에게 설명만 보여주는 영역'},
-  availability:{label:'시간 선택',description:'참여 가능한 날짜와 시간을 받는 문항'},
-}
-
-const addGroups:{title:string;types:FormField['type'][]}[] = [
-  {title:'기본 정보',types:['short','long','email','phone','text']},
-  {title:'선택 문항',types:['radio','checkbox']},
-  {title:'일정',types:['availability']},
+const newId=()=>crypto.randomUUID()
+const labels:Record<FormField['type'],string>={short:'짧은 답변',long:'긴 답변',email:'이메일',phone:'전화번호',radio:'객관식',checkbox:'복수 선택',text:'안내문',availability:'시간 선택'}
+const addGroups=[
+  {title:'기본 정보',items:[['short','짧은 답변'],['long','긴 답변'],['email','이메일'],['phone','전화번호']] as [FormField['type'],string][]},
+  {title:'선택 문항',items:[['radio','객관식'],['checkbox','복수 선택'],['text','안내문']] as [FormField['type'],string][]},
+  {title:'일정',items:[['availability','시간 선택']] as [FormField['type'],string][]},
 ]
 
-function freshAvailability():FormField {
-  return {
-    id:newId(), type:'availability', label:'참여 가능한 시간을 선택해주세요', required:false,
-    sessionKey:`session-${newId().slice(0,5)}`, sessionLabel:'본 실험', duration:60,
-    stepMinutes:30, min:1, rankTop:0, dates:[], hours:'10:00-18:00', blockedSlots:[],
-  }
-}
+function freshAvailability():FormField{return{id:newId(),type:'availability',label:'참여 가능한 시간을 선택해주세요',required:false,sessionKey:`session-${newId().slice(0,5)}`,sessionLabel:'본 실험',duration:60,stepMinutes:30,min:1,rankTop:0,dates:[],hours:'10:00-18:00',blockedSlots:[]}}
+function timeText(minutes:number){return`${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`}
+function toMinutes(value:string){const[h,m]=value.split(':').map(Number);return h*60+m}
+function dateLabel(date:string){return new Date(`${date}T00:00:00+09:00`).toLocaleDateString('ko-KR',{month:'short',day:'numeric',weekday:'short'})}
 
-function timeText(minutes:number) {
-  return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`
-}
-function toMinutes(value:string) {
-  const [h,m]=value.split(':').map(Number)
-  return h*60+m
-}
-function dateLabel(date:string) {
-  return new Date(`${date}T00:00:00+09:00`).toLocaleDateString('ko-KR',{month:'short',day:'numeric',weekday:'short'})
-}
-
-function AvailabilityEditor({field,onChange}:{field:FormField,onChange:(patch:Partial<FormField>)=>void}) {
-  const [newDate,setNewDate]=useState('')
+function AvailabilityEditor({field,onChange}:{field:FormField,onChange:(patch:Partial<FormField>)=>void}){
+  const[newDate,setNewDate]=useState('')
   const drag=useRef<{active:boolean;block:boolean}|null>(null)
   const dates=field.dates||[]
   const blocked=useMemo(()=>new Set(field.blockedSlots||[]),[field.blockedSlots])
-  const [start,end]=(field.hours||'10:00-18:00').split('-')
+  const[start,end]=(field.hours||'10:00-18:00').split('-')
   const step=Math.max(5,field.stepMinutes||30)
-  const startMin=toMinutes(start||'10:00')
-  const endMin=toMinutes(end||'18:00')
   const rows:number[]=[]
-  for(let m=startMin;m<endMin;m+=step) rows.push(m)
+  for(let m=toMinutes(start||'10:00');m<toMinutes(end||'18:00');m+=step)rows.push(m)
 
-  useEffect(()=>{
-    const stop=()=>{drag.current=null}
-    window.addEventListener('pointerup',stop)
-    window.addEventListener('pointercancel',stop)
-    return()=>{window.removeEventListener('pointerup',stop);window.removeEventListener('pointercancel',stop)}
-  },[])
-
-  function setBlocked(slot:string,shouldBlock:boolean) {
-    const next=new Set(field.blockedSlots||[])
-    if(shouldBlock) next.add(slot); else next.delete(slot)
-    onChange({blockedSlots:[...next].sort()})
-  }
-  function begin(slot:string) {
-    const shouldBlock=!blocked.has(slot)
-    drag.current={active:true,block:shouldBlock}
-    setBlocked(slot,shouldBlock)
-  }
-  function enter(slot:string) {
-    if(drag.current?.active) setBlocked(slot,drag.current.block)
-  }
-  function addDate() {
-    if(!newDate||dates.includes(newDate)) return
-    onChange({dates:[...dates,newDate].sort()})
-    setNewDate('')
-  }
-  function removeDate(date:string) {
-    onChange({
-      dates:dates.filter(d=>d!==date),
-      blockedSlots:(field.blockedSlots||[]).filter(slot=>!slot.startsWith(`${date}T`)),
-    })
-  }
-  function updateHour(which:'start'|'end',value:string) {
-    const nextStart=which==='start'?value:start
-    const nextEnd=which==='end'?value:end
-    if(toMinutes(nextEnd)<=toMinutes(nextStart)) return
-    onChange({hours:`${nextStart}-${nextEnd}`})
-  }
+  useEffect(()=>{const stop=()=>{drag.current=null};window.addEventListener('pointerup',stop);window.addEventListener('pointercancel',stop);return()=>{window.removeEventListener('pointerup',stop);window.removeEventListener('pointercancel',stop)}},[])
+  function setBlocked(slot:string,value:boolean){const next=new Set(field.blockedSlots||[]);value?next.add(slot):next.delete(slot);onChange({blockedSlots:[...next].sort()})}
+  function begin(slot:string){const value=!blocked.has(slot);drag.current={active:true,block:value};setBlocked(slot,value)}
+  function enter(slot:string){if(drag.current?.active)setBlocked(slot,drag.current.block)}
+  function addDate(){if(!newDate||dates.includes(newDate))return;onChange({dates:[...dates,newDate].sort()});setNewDate('')}
+  function removeDate(date:string){onChange({dates:dates.filter(d=>d!==date),blockedSlots:(field.blockedSlots||[]).filter(slot=>!slot.startsWith(`${date}T`))})}
+  function updateHour(which:'start'|'end',value:string){const ns=which==='start'?value:start;const ne=which==='end'?value:end;if(toMinutes(ne)<=toMinutes(ns))return;onChange({hours:`${ns}-${ne}`})}
 
   return <div className="availability-editor">
     <div className="availability-config-grid">
-      <label><span>세션 이름</span><small>예: 사전 교육, 본 실험</small><input value={field.sessionLabel||''} onChange={e=>onChange({sessionLabel:e.target.value})}/></label>
-      <label><span>소요 시간</span><small>한 세션에 필요한 시간</small><input type="number" min={5} value={field.duration||60} onChange={e=>onChange({duration:+e.target.value})}/><span className="field-hint">분</span></label>
-      <label><span>시간 간격</span><small>참가자에게 보여줄 시작 시간 간격</small><select value={field.stepMinutes||30} onChange={e=>onChange({stepMinutes:+e.target.value})}><option value={15}>15분</option><option value={30}>30분</option><option value={60}>60분</option></select></label>
-      <label><span>최소 선택</span><small>반드시 골라야 하는 최소 개수</small><input type="number" min={1} value={field.min||1} onChange={e=>onChange({min:+e.target.value})}/></label>
-      <label><span>최대 선택</span><small>비워두면 제한 없음</small><input type="number" min={1} value={field.max||''} placeholder="제한 없음" onChange={e=>onChange({max:e.target.value?+e.target.value:null})}/></label>
-      <label><span>선호 순위</span><small>상위 몇 개 시간을 순위로 받을지</small><input type="number" min={0} value={field.rankTop||0} onChange={e=>onChange({rankTop:+e.target.value})}/><span className="field-hint">0이면 사용 안 함</span></label>
+      <label><span>세션 이름</span><input value={field.sessionLabel||''} onChange={e=>onChange({sessionLabel:e.target.value})}/><small>관리 화면에 표시할 이름</small></label>
+      <label><span>소요 시간</span><input type="number" min={5} value={field.duration||60} onChange={e=>onChange({duration:+e.target.value})}/><small>한 번 참여하는 데 필요한 시간(분)</small></label>
+      <label><span>시간 간격</span><select value={field.stepMinutes||30} onChange={e=>onChange({stepMinutes:+e.target.value})}><option value={15}>15분</option><option value={30}>30분</option><option value={60}>60분</option></select><small>참가자에게 보여줄 시작 시간 간격</small></label>
+      <label><span>최소 선택</span><input type="number" min={1} value={field.min||1} onChange={e=>onChange({min:+e.target.value})}/></label>
+      <label><span>최대 선택</span><input type="number" min={1} value={field.max||''} placeholder="제한 없음" onChange={e=>onChange({max:e.target.value?+e.target.value:null})}/></label>
+      <label><span>선호 순위</span><input type="number" min={0} value={field.rankTop||0} onChange={e=>onChange({rankTop:+e.target.value})}/><small>0이면 순위를 묻지 않습니다.</small></label>
     </div>
-
-    <div className="availability-step">
-      <div className="availability-step-head"><strong>1. 모집 날짜</strong><span className="muted small">참가자가 선택할 수 있는 날짜를 추가하세요.</span></div>
-      <div className="date-add-row"><input type="date" value={newDate} onChange={e=>setNewDate(e.target.value)}/><button type="button" className="btn secondary small" onClick={addDate}>날짜 추가</button></div>
-      <div className="selected-dates">{dates.map(date=><button type="button" key={date} className="date-chip" onClick={()=>removeDate(date)}>{dateLabel(date)} <span>×</span></button>)}{!dates.length&&<span className="muted small">아직 날짜가 없습니다.</span>}</div>
-    </div>
-
-    <div className="availability-step">
-      <div className="availability-step-head"><strong>2. 운영 시간</strong><span className="muted small">이 범위 안에서 참가자에게 시간을 보여줍니다.</span></div>
-      <div className="hours-row"><label>시작<input type="time" value={start} onChange={e=>updateHour('start',e.target.value)}/></label><span>–</span><label>종료<input type="time" value={end} onChange={e=>updateHour('end',e.target.value)}/></label></div>
-    </div>
-
-    <div className="availability-step">
-      <div className="availability-step-head blackout-head"><div><strong>3. 사용하지 않을 시간 표시</strong><span className="muted small">마우스로 누른 채 드래그하면 회색으로 칠해집니다. 회색 칸은 참가자에게 표시되지 않습니다.</span></div>{(field.blockedSlots||[]).length>0&&<button type="button" className="btn ghost small" onClick={()=>onChange({blockedSlots:[]})}>모두 사용 가능으로</button>}</div>
-      {!dates.length?<div className="blackout-empty">먼저 날짜를 추가하면 타임테이블이 나타납니다.</div>:<div className="blackout-scroll">
-        <div className="blackout-grid" style={{gridTemplateColumns:`76px repeat(${dates.length}, minmax(112px,1fr))`}} onDragStart={e=>e.preventDefault()}>
-          <div className="blackout-corner">시간</div>
-          {dates.map(d=><div className="blackout-date" key={d}>{dateLabel(d)}</div>)}
-          {rows.flatMap(m=>[
-            <div className="blackout-time" key={`t-${m}`}>{timeText(m)}</div>,
-            ...dates.map(date=>{const slot=`${date}T${timeText(m)}`;const isBlocked=blocked.has(slot);return <button
-              type="button"
-              key={slot}
-              className={`blackout-cell ${isBlocked?'blocked':''}`}
-              onPointerDown={e=>{e.preventDefault();begin(slot)}}
-              onPointerEnter={()=>enter(slot)}
-              onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setBlocked(slot,!isBlocked)}}}
-              title={isBlocked?'사용 안 함 — 드래그해서 다시 열 수 있습니다.':'사용 가능 — 드래그해서 막을 수 있습니다.'}
-            >{isBlocked?'사용 안 함':'사용 가능'}</button>}),
-          ])}
-        </div>
-      </div>}
-      <div className="blackout-legend"><span><i className="legend-allowed"/>사용 가능</span><span><i className="legend-blocked"/>사용 안 함</span><span className="muted">소요 시간이 여러 칸에 걸치면, 회색 칸과 겹치는 시작 시간도 자동 제외됩니다.</span></div>
-    </div>
+    <div className="availability-step"><div className="availability-step-head"><strong>1. 날짜</strong><span className="muted small">참가자가 선택할 날짜를 추가합니다.</span></div><div className="date-add-row"><input type="date" value={newDate} onChange={e=>setNewDate(e.target.value)}/><button type="button" className="btn secondary small" onClick={addDate}>추가</button></div><div className="selected-dates">{dates.map(date=><button type="button" key={date} className="date-chip" onClick={()=>removeDate(date)}>{dateLabel(date)} <span>×</span></button>)}{!dates.length&&<span className="muted small">아직 날짜가 없습니다.</span>}</div></div>
+    <div className="availability-step"><div className="availability-step-head"><strong>2. 운영 시간</strong><span className="muted small">이 범위 안에서만 시간을 제공합니다.</span></div><div className="hours-row"><label>시작<input type="time" value={start} onChange={e=>updateHour('start',e.target.value)}/></label><span>–</span><label>종료<input type="time" value={end} onChange={e=>updateHour('end',e.target.value)}/></label></div></div>
+    <div className="availability-step"><div className="availability-step-head blackout-head"><div><strong>3. 제외할 시간</strong><span className="muted small">드래그한 회색 칸은 참가자에게 보이지 않습니다.</span></div>{(field.blockedSlots||[]).length>0&&<button type="button" className="btn ghost small" onClick={()=>onChange({blockedSlots:[]})}>모두 열기</button>}</div>{!dates.length?<div className="blackout-empty">먼저 날짜를 추가하세요.</div>:<div className="blackout-scroll"><div className="blackout-grid" style={{gridTemplateColumns:`76px repeat(${dates.length}, minmax(112px,1fr))`}} onDragStart={e=>e.preventDefault()}><div className="blackout-corner">시간</div>{dates.map(d=><div className="blackout-date" key={d}>{dateLabel(d)}</div>)}{rows.flatMap(m=>[<div className="blackout-time" key={`t-${m}`}>{timeText(m)}</div>,...dates.map(date=>{const slot=`${date}T${timeText(m)}`;const off=blocked.has(slot);return<button type="button" key={slot} className={`blackout-cell ${off?'blocked':''}`} onPointerDown={e=>{e.preventDefault();begin(slot)}} onPointerEnter={()=>enter(slot)}>{off?'사용 안 함':'사용 가능'}</button>})])}</div></div>}<div className="blackout-legend"><span><i className="legend-allowed"/>사용 가능</span><span><i className="legend-blocked"/>사용 안 함</span></div></div>
   </div>
 }
 
-export default function FormBuilderManager({study,refresh}:{study:Study,refresh:()=>Promise<void>}) {
-  const [title,setTitle]=useState(study.title)
-  const [slug,setSlug]=useState(study.slug)
-  const [description,setDescription]=useState(study.description)
-  const [fields,setFields]=useState<FormField[]>(study.form_config?.fields||[])
-  const [saving,setSaving]=useState(false)
+export default function FormBuilderManager({study,refresh}:{study:Study,refresh:()=>Promise<void>}){
+  const[title,setTitle]=useState(study.title)
+  const[slug,setSlug]=useState(study.slug)
+  const[description,setDescription]=useState(study.description)
+  const[fields,setFields]=useState<FormField[]>(study.form_config?.fields||[])
+  const[selectedId,setSelectedId]=useState(study.form_config?.fields?.[0]?.id||'')
+  const[showAdd,setShowAdd]=useState(false)
+  const[saving,setSaving]=useState(false)
+  const selectedIndex=Math.max(0,fields.findIndex(f=>f.id===selectedId))
+  const selected=fields[selectedIndex]||null
 
-  function patch(index:number,patchValue:Partial<FormField>) { setFields(v=>v.map((f,i)=>i===index?{...f,...patchValue}:f)) }
-  async function save() {
-    setSaving(true)
-    const {error}=await supabase.from('studies').update({
-      title,
-      slug:slug.replace(/[^a-zA-Z0-9-_]/g,'-'),
-      description,
-      form_config:{fields},
-    }).eq('id',study.id)
-    setSaving(false)
-    if(error) alert(error.message); else await refresh()
-  }
-  function addField(type:FormField['type']) {
-    const base:FormField = type==='availability' ? freshAvailability() : {
-      id:newId(), type, label:type==='text'?'안내 문구':'새 문항', required:false,
-      ...(['radio','checkbox'].includes(type)?{options:['선택지 1','선택지 2']}:{}),
-    }
-    setFields(v=>[...v,base])
-  }
+  function patch(patchValue:Partial<FormField>){if(!selected)return;setFields(v=>v.map(f=>f.id===selected.id?{...f,...patchValue}:f))}
+  function addField(type:FormField['type']){const field:FormField=type==='availability'?freshAvailability():{id:newId(),type,label:type==='text'?'안내 문구':'새 문항',required:false,...(['radio','checkbox'].includes(type)?{options:['선택지 1','선택지 2']}: {})};setFields(v=>[...v,field]);setSelectedId(field.id);setShowAdd(false)}
+  function move(delta:number){if(!selected)return;const from=fields.findIndex(f=>f.id===selected.id);const to=from+delta;if(to<0||to>=fields.length)return;setFields(v=>{const n=[...v];[n[from],n[to]]=[n[to],n[from]];return n})}
+  function remove(){if(!selected||!confirm('이 문항을 삭제할까요?'))return;const index=fields.findIndex(f=>f.id===selected.id);const next=fields.filter(f=>f.id!==selected.id);setFields(next);setSelectedId(next[Math.min(index,next.length-1)]?.id||'')}
+  async function save(){setSaving(true);const{error}=await supabase.from('studies').update({title,slug:slug.replace(/[^a-zA-Z0-9-_]/g,'-'),description,form_config:{fields}}).eq('id',study.id);setSaving(false);if(error)alert(error.message);else await refresh()}
 
-  return <div className="builder-shell">
-    <div className="builder-page-head">
-      <div>
-        <span className="builder-kicker">신청서 편집</span>
-        <h2>참가자 신청 페이지 구성</h2>
-        <p className="muted">참가자에게 보일 기본 정보와 질문을 순서대로 구성하세요.</p>
-      </div>
-      <button type="button" className="btn builder-save" onClick={save} disabled={saving}>{saving?'저장 중…':'변경사항 저장'}</button>
-    </div>
+  return <div className="formv2-shell">
+    <header className="formv2-head"><div><span className="admin-kicker">FORM</span><h2>신청서 구성</h2><p className="muted">왼쪽에서 문항을 고르고 오른쪽에서 한 문항씩 편집합니다.</p></div><button className="btn" onClick={save}>{saving?'저장 중…':'변경사항 저장'}</button></header>
 
-    <div className="builder-layout">
-      <main className="builder-main">
-        <section className="builder-section builder-basic-section">
-          <div className="builder-section-head">
-            <span className="builder-section-index">기본 정보</span>
-            <div><h3>참가자에게 보이는 실험 정보</h3><p className="muted small">신청 페이지 상단에 표시되는 제목과 설명입니다.</p></div>
-          </div>
-          <div className="builder-basic-fields">
-            <label className="builder-control builder-control-major">
-              <span className="builder-control-title">실험 이름</span>
-              <small>참가자가 신청 페이지에서 가장 먼저 보는 이름입니다.</small>
-              <input className="builder-title-input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="예: AI 학습 실험"/>
-            </label>
-            <label className="builder-control">
-              <span className="builder-control-title">신청 링크</span>
-              <small>참가자에게 공유할 주소의 마지막 부분입니다.</small>
-              <div className="builder-slug-input"><span>/s/</span><input value={slug} onChange={e=>setSlug(e.target.value)}/></div>
-            </label>
-            <label className="builder-control">
-              <span className="builder-control-title">신청 페이지 소개</span>
-              <small>실험 목적, 소요 시간, 참여 방식처럼 참가자가 알아야 할 내용을 적으세요.</small>
-              <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="참가자에게 보여줄 실험 안내를 입력하세요."/>
-            </label>
-          </div>
-        </section>
+    <section className="formv2-basics card"><div className="formv2-section-title"><div><span>기본 정보</span><h3>참가자에게 보이는 신청 페이지</h3></div></div><div className="formv2-basic-fields"><label className="formv2-major"><span>실험 이름</span><input value={title} onChange={e=>setTitle(e.target.value)}/></label><label><span>신청 링크</span><div className="formv2-slug"><span>/s/</span><input value={slug} onChange={e=>setSlug(e.target.value)}/></div></label><label><span>소개</span><textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="참가자에게 보여줄 간단한 실험 안내를 적어주세요."/></label></div></section>
 
-        <div className="builder-questions-head">
-          <div><span className="builder-kicker">신청 문항</span><h3>{fields.length}개의 문항</h3></div>
-          <span className="muted small">위에서 아래 순서대로 참가자에게 표시됩니다.</span>
-        </div>
-
-        <div className="builder-questions">
-          {fields.map((field,index)=>{
-            const meta=fieldMeta[field.type]
-            const contentLabel=field.type==='text'?'안내 문구':'질문'
-            return <section className="builder-question" key={field.id}>
-              <header className="builder-question-head">
-                <div className="builder-question-identity">
-                  <span className="builder-question-number">문항 {index+1}</span>
-                  <strong>{meta.label}</strong>
-                  <span className="muted small">{meta.description}</span>
-                </div>
-                <div className="row builder-question-actions">
-                  <button type="button" className="btn ghost small" disabled={index===0} onClick={()=>setFields(v=>{const next=[...v];if(index>0)[next[index-1],next[index]]=[next[index],next[index-1]];return next})}>위로</button>
-                  <button type="button" className="btn danger small" onClick={()=>setFields(v=>v.filter(x=>x.id!==field.id))}>삭제</button>
-                </div>
-              </header>
-
-              <div className="builder-question-body">
-                <label className="builder-control builder-control-major">
-                  <span className="builder-control-title">{contentLabel}</span>
-                  <small>{field.type==='text'?'참가자에게 그대로 보여줄 안내 문장을 입력하세요.':'참가자에게 보여줄 질문 문장을 입력하세요.'}</small>
-                  <input className="builder-question-input" value={field.label} onChange={e=>patch(index,{label:e.target.value})}/>
-                </label>
-                {field.type!=='text'&&<label className="builder-control">
-                  <span className="builder-control-title">도움말</span>
-                  <small>필요한 경우 질문 아래에 짧은 설명을 추가하세요.</small>
-                  <input value={field.description||''} onChange={e=>patch(index,{description:e.target.value})} placeholder="선택 사항"/>
-                </label>}
-                {field.type!=='text'&&<label className="checkline builder-required"><input type="checkbox" checked={!!field.required} onChange={e=>patch(index,{required:e.target.checked})}/> <span><strong>필수 응답</strong><small>참가자가 이 문항에 반드시 답해야 합니다.</small></span></label>}
-                {['radio','checkbox'].includes(field.type)&&<label className="builder-control"><span className="builder-control-title">선택지</span><small>한 줄에 하나씩 입력하세요.</small><textarea value={(field.options||[]).join('\n')} onChange={e=>patch(index,{options:e.target.value.split('\n').map(x=>x.trim()).filter(Boolean)})}/></label>}
-                {field.type==='availability'&&<AvailabilityEditor field={field} onChange={value=>patch(index,value)}/>} 
-              </div>
-            </section>
-          })}
-          {!fields.length&&<div className="builder-empty"><strong>아직 문항이 없습니다.</strong><span className="muted small">오른쪽에서 필요한 문항을 추가하세요.</span></div>}
-        </div>
-      </main>
-
-      <aside className="builder-add-panel">
-        <div className="builder-add-heading"><span className="builder-kicker">문항 추가</span><h3>무엇을 받을까요?</h3><p className="muted small">필요한 항목을 누르면 신청서 맨 아래에 추가됩니다.</p></div>
-        <div className="builder-add-groups">
-          {addGroups.map(group=><section className="builder-add-group" key={group.title}>
-            <div className="builder-add-group-title">{group.title}</div>
-            {group.types.map(type=>{
-              const meta=fieldMeta[type]
-              return <button type="button" key={type} className="builder-add-row" onClick={()=>addField(type)}>
-                <span className="builder-add-plus">＋</span>
-                <span><strong>{meta.label}</strong><small>{meta.description}</small></span>
-              </button>
-            })}
-          </section>)}
-        </div>
+    <div className="formv2-workspace">
+      <aside className="formv2-nav card">
+        <div className="formv2-nav-head"><div><h3>문항</h3><span>{fields.length}개</span></div><button type="button" className="btn secondary small" onClick={()=>setShowAdd(v=>!v)}>+ 문항 추가</button></div>
+        {showAdd&&<div className="formv2-add-menu">{addGroups.map(group=><div key={group.title}><strong>{group.title}</strong>{group.items.map(([type,label])=><button type="button" key={type} onClick={()=>addField(type)}><span>＋</span><div><b>{label}</b><small>{type==='availability'?'날짜와 가능한 시간을 받습니다.':type==='radio'?'하나만 선택합니다.':type==='checkbox'?'여러 개를 선택합니다.':'텍스트 정보를 받습니다.'}</small></div></button>)}</div>)}</div>}
+        <div className="formv2-question-list">{fields.map((field,index)=><button type="button" key={field.id} className={selected?.id===field.id?'active':''} onClick={()=>setSelectedId(field.id)}><span className="formv2-index">{index+1}</span><div><strong>{field.label||'제목 없는 문항'}</strong><small>{labels[field.type]}{field.required?' · 필수':''}</small></div></button>)}{!fields.length&&<div className="empty compact">문항을 추가해주세요.</div>}</div>
       </aside>
+
+      <section className="formv2-editor card">
+        {!selected?<div className="empty">왼쪽에서 문항을 선택하세요.</div>:<>
+          <div className="formv2-editor-head"><div><span className="formv2-eyebrow">문항 {selectedIndex+1}</span><h3>{labels[selected.type]}</h3></div><div className="row"><button type="button" className="btn ghost small" onClick={()=>move(-1)} disabled={selectedIndex===0}>↑</button><button type="button" className="btn ghost small" onClick={()=>move(1)} disabled={selectedIndex===fields.length-1}>↓</button><button type="button" className="btn danger small" onClick={remove}>삭제</button></div></div>
+          <div className="formv2-editor-body">
+            <label className="formv2-major"><span>{selected.type==='text'?'안내 문구':'질문'}</span><input className="formv2-question-input" value={selected.label} onChange={e=>patch({label:e.target.value})} placeholder="참가자에게 보여줄 문장을 입력하세요."/></label>
+            {selected.type!=='text'&&<label><span>설명 <small>선택 사항</small></span><input value={selected.description||''} onChange={e=>patch({description:e.target.value})} placeholder="필요한 경우 짧은 도움말을 적어주세요."/></label>}
+            {selected.type!=='text'&&<label className="formv2-required"><input type="checkbox" checked={!!selected.required} onChange={e=>patch({required:e.target.checked})}/><div><strong>필수 응답</strong><span>참가자가 제출하기 전에 반드시 답해야 합니다.</span></div></label>}
+            {['radio','checkbox'].includes(selected.type)&&<label><span>선택지</span><textarea value={(selected.options||[]).join('\n')} onChange={e=>patch({options:e.target.value.split('\n').map(x=>x.trim()).filter(Boolean)})} placeholder={'선택지 1\n선택지 2'}/></label>}
+            {selected.type==='availability'&&<AvailabilityEditor field={selected} onChange={patch}/>} 
+          </div>
+        </>}
+      </section>
     </div>
   </div>
 }
