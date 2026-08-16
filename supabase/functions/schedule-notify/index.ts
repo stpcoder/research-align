@@ -24,7 +24,15 @@ async function ensureMaterial(studyId:string,userEmail:string,slug:string){let m
 
 function participantName(study:any,response:any){const fields=study?.form_config?.fields||[];const nameField=fields.find((f:any)=>f.type==='short'&&/이름|name/i.test(String(f.label||'')))||fields.find((f:any)=>f.type==='short');const value=nameField?response?.answers?.[nameField.id]:null;return typeof value==='string'&&value.trim()?value.trim():'참가자'}
 
-async function ensureThread(studyId:string,responseId:string,email:string,subject:string){const{data:existing,error:findError}=await admin.from('contact_threads').select('id,subject').eq('study_id',studyId).eq('response_id',responseId).eq('channel','email').eq('participant_address',email).neq('status','closed').order('last_message_at',{ascending:false,nullsFirst:false}).limit(1).maybeSingle();if(findError)throw findError;if(existing)return existing;const{data,error}=await admin.from('contact_threads').insert({study_id:studyId,response_id:responseId,channel:'email',participant_address:email,subject,status:'open',source:'participant',last_message_at:new Date().toISOString()}).select('id,subject').single();if(error)throw error;return data}
+async function ensureThread(studyId:string,responseId:string,email:string,subject:string){
+  const{data:rows,error:findError}=await admin.from('contact_threads').select('id,subject,status,participant_address').eq('study_id',studyId).eq('response_id',responseId).eq('channel','email').neq('status','closed').order('last_message_at',{ascending:false,nullsFirst:false})
+  if(findError)throw findError
+  const existing=(rows||[]).find((row:any)=>addressOf(row.participant_address)===email)
+  if(existing)return existing
+  const{data,error}=await admin.from('contact_threads').insert({study_id:studyId,response_id:responseId,channel:'email',participant_address:email,subject,status:'open',source:'participant',last_message_at:new Date().toISOString()}).select('id,subject,status,participant_address').single()
+  if(error)throw error
+  return data
+}
 
 Deno.serve(async(req:Request)=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:cors})
@@ -75,16 +83,25 @@ Deno.serve(async(req:Request)=>{
     const result=await clawFetch(`/inboxes/${encodeURIComponent(material.inbox_id)}/messages`,material.api_token,{method:'POST',body:JSON.stringify({to:destination,subject,text:body})})
     const providerId=result.message_id??result.id??null
     const sentAt=result.sent_at||new Date().toISOString()
+    const baseMetadata={event,starts_at:snapshotStart,ends_at:snapshotEnd,session_label:assignment.session_label,provider_status:result.status??null,thread_id:thread.id}
+
+    const{error:updateError}=await admin.from('notifications').update({status:'sent',provider_message_id:providerId,sent_at:sentAt,error:null,metadata:baseMetadata}).eq('id',notificationId)
+    if(updateError)throw updateError
 
     const{error:messageError}=await admin.from('contact_messages').insert({thread_id:thread.id,direction:'outbound',body,provider_message_id:providerId,sent_at:sentAt,metadata:{provider:'clawmail',source:'schedule_notification',assignment_id:assignmentId,event,to:destination,subject,status:result.status??null}})
-    if(messageError)throw messageError
-    await admin.from('contact_threads').update({last_message_at:sentAt,subject,status:'open'}).eq('id',thread.id)
-    const{error:updateError}=await admin.from('notifications').update({status:'sent',provider_message_id:providerId,sent_at:sentAt,error:null,metadata:{event,starts_at:snapshotStart,ends_at:snapshotEnd,session_label:assignment.session_label,provider_status:result.status??null,thread_id:thread.id}}).eq('id',notificationId)
-    if(updateError)throw updateError
+    if(messageError){
+      await admin.from('notifications').update({metadata:{...baseMetadata,contact_log_error:messageError.message}}).eq('id',notificationId)
+    }else{
+      // A schedule notice is not a researcher response to a pending inquiry. Preserve thread status and subject.
+      await admin.from('contact_threads').update({last_message_at:sentAt}).eq('id',thread.id)
+    }
     return json({status:'sent',event,notification_id:notificationId,provider_message_id:providerId,provider_status:result.status??null})
   }catch(error){
     const message=error instanceof Error?error.message:'Schedule notification failed'
-    if(notificationId)await admin.from('notifications').update({status:'failed',error:message}).eq('id',notificationId)
+    if(notificationId){
+      const{data:existing}=await admin.from('notifications').select('status').eq('id',notificationId).maybeSingle()
+      if(existing?.status!=='sent')await admin.from('notifications').update({status:'failed',error:message}).eq('id',notificationId)
+    }
     return json({status:'failed',error:message,notification_id:notificationId})
   }
 })
