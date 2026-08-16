@@ -144,7 +144,7 @@ export default function ContactManager({study}:{study:Study}) {
   }
 
   async function syncMail(showNotice=true) {
-    if (syncLock.current || !identityEmail) return
+    if (syncLock.current) return
     syncLock.current=true
     setSyncing(true)
     try {
