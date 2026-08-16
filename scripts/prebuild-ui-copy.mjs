@@ -3,6 +3,13 @@ import fs from 'node:fs'
 const file = 'src/app/page.tsx'
 let text = fs.readFileSync(file, 'utf8')
 
+if (!text.includes("import ResponseManager from '@/components/ResponseManager'")) {
+  text = text.replace(
+    "import type { FormField, ResponseRow, Study } from '@/lib/types'",
+    "import type { FormField, ResponseRow, Study } from '@/lib/types'\nimport ResponseManager from '@/components/ResponseManager'",
+  )
+}
+
 const replacements = new Map([
   ['Research operations, without the spreadsheet.', '실험 운영을 한 곳에서 관리하세요.'],
   ['연구자는 각자 로그인하고 자신의 여러 실험만 관리합니다.', '참가자 모집, 신청서 작성, 일정 조율, 연락까지 한 곳에서 관리할 수 있습니다.'],
@@ -14,7 +21,7 @@ const replacements = new Map([
   ["const tabs=[['form','Form'],['responses','Responses'],['schedule','Schedule'],['contact','Contact Hub']]", "const tabs=[['form','신청서'],['responses','신청자'],['schedule','일정'],['contact','연락']]"],
   ["study.status==='published'?'모집 중지':'Publish'", "study.status==='published'?'모집 중지':'모집 시작'"],
   ['<label>연구 제목', '<label>실험 제목'],
-  ['Google Form처럼 필요한 항목을 자유롭게 쌓습니다. 시간 선택만 scheduling-aware field입니다.', '이름, 연락처, 객관식, 시간 선택 등 필요한 항목을 추가할 수 있습니다.'],
+  ['Google Form처럼 필요한 항목을 자유롭게 쌓습니다. 시간 선택만 scheduling-aware field입니다.', '필요한 문항을 추가하고 순서를 정리할 수 있습니다.'],
   ['<h2>Responses</h2>', '<h2>신청자</h2>'],
   ['<span className="pill">submitted</span>', '<span className="pill">신청 완료</span>'],
   ['Study contact identity', '연구용 이메일'],
@@ -29,7 +36,16 @@ const replacements = new Map([
   ['KeyID email은 Next.js server route에서 발송되고, 답장은 webhook으로 이 thread에 들어옵니다.', '보낸 이메일과 참가자의 답장이 이 화면에 함께 기록됩니다.'],
   ['SMS thread — inbound 수신 기록용', 'SMS 메시지'],
   ['최신 KeyID는 persistent phone/SMS inbox를 지원하지만 공개 JS SDK의 outbound SMS 메서드가 아직 확인되지 않아 이 빌드에서는 수신 thread만 안전하게 연결합니다.', '현재 SMS는 참가자 연락처를 기록하고 수신 내역을 확인하는 용도로 사용합니다.'],
+  ["const fieldTypes:[FormField['type'],string][]=[['short','단답형'],['long','장문형'],['email','이메일'],['phone','전화번호'],['radio','객관식'],['checkbox','체크박스'],['text','설명'],['availability','시간 선택']]", "const fieldTypes:[FormField['type'],string][]=[['short','짧은 답변'],['long','긴 답변'],['email','이메일'],['phone','전화번호'],['radio','객관식'],['checkbox','복수 선택'],['text','안내문'],['availability','시간 선택']]"],
+  ["function freshFields():FormField[]{return [{id:id(),type:'short',label:'이름',required:true},{id:id(),type:'email',label:'이메일',required:true},{id:id(),type:'phone',label:'전화번호',description:'일정 변경이 필요한 경우에만 사용합니다.',required:false},{id:id(),type:'radio',label:'선호 연락 수단',options:['이메일','SMS'],required:true},{id:id(),type:'availability',label:'참여 가능한 시간을 선택해주세요',sessionKey:'session-1',sessionLabel:'본 실험',duration:60,stepMinutes:30,min:3,rankTop:3,dates:[],hours:'10:00-18:00',required:true}]}", "function freshFields():FormField[]{return [{id:id(),type:'short',label:'이름',required:true},{id:id(),type:'email',label:'이메일',description:'일정 안내를 받을 이메일을 입력해주세요.',required:true},{id:id(),type:'phone',label:'전화번호',description:'문자 안내가 필요한 경우 입력해주세요.',required:false},{id:id(),type:'availability',label:'참여 가능한 시간을 선택해주세요',sessionKey:'session-1',sessionLabel:'본 실험',duration:60,stepMinutes:30,min:3,rankTop:3,dates:[],hours:'10:00-18:00',required:true}]}"],
+  ["<label>옵션<textarea value={(f.options||[]).join('\\n')}", "<label>선택지 (한 줄에 하나씩)<textarea value={(f.options||[]).join('\\n')}"],
+  ["{options:['옵션 1','옵션 2']}", "{options:['선택지 1','선택지 2']}"],
 ])
 
 for (const [from, to] of replacements) text = text.replaceAll(from, to)
+
+const oldResponses = `function Responses({study}:{study:Study}){const [rows,setRows]=useState<ResponseRow[]>([]);useEffect(()=>{supabase.from('responses').select('*').eq('study_id',study.id).order('submitted_at',{ascending:false}).then(({data})=>setRows((data||[]) as ResponseRow[]))},[study.id]);const fields=study.form_config.fields;return <div className="card"><div className="between row"><div><h2>Responses</h2><p className="muted small">{rows.length}명 제출</p></div></div>{rows.map(r=><div className="schedule-row" key={r.id}><div><b>{String(r.answers[fields.find(f=>f.type==='short')?.id||'']||'참가자')}</b><span className="muted small">{r.contact_email||r.contact_phone}</span></div><div className="muted small">가능 시간 {Object.values(r.availability||{}).flat().length}개 · {fmt(r.submitted_at)}</div><span className="pill">submitted</span></div>)}{!rows.length&&<div className="empty">아직 응답이 없습니다.</div>}</div>}`
+const newResponses = `function Responses({study}:{study:Study}){return <ResponseManager study={study}/>} `
+text = text.replace(oldResponses, newResponses)
+
 fs.writeFileSync(file, text)
