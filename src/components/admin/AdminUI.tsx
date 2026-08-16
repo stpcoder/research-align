@@ -68,7 +68,7 @@ export function AdminPanelHeader({
   </div>
 }
 
-export type AdminStatus = 'unassigned' | 'draft' | 'confirmed' | 'completed' | 'neutral' | 'danger'
+export type AdminStatus = 'unassigned' | 'draft' | 'confirmed' | 'completed' | 'neutral' | 'info' | 'danger'
 
 export function StatusBadge({ status, label }: { status: AdminStatus; label?: string }) {
   const defaultLabel: Record<AdminStatus, string> = {
@@ -77,6 +77,7 @@ export function StatusBadge({ status, label }: { status: AdminStatus; label?: st
     confirmed: '확정',
     completed: '완료',
     neutral: '진행 중',
+    info: '진행 중',
     danger: '오류',
   }
   return <span className={`aui-status ${status}`}>{label || defaultLabel[status]}</span>
