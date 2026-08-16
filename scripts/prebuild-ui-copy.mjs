@@ -27,6 +27,11 @@ text = replaceBetween(text,'function Responses(','function Schedule(',`function 
 text = replaceBetween(text,'function Schedule(','function ContactHub(',`function Schedule({study}:{study:Study}){return <ScheduleUnified study={study}/>}\n`)
 text = text.replaceAll('<ContactHub study={study}/>', '<ContactManager study={study}/>')
 
+const oauthAnchor = " useEffect(()=>{if(user) loadStudies()},[user])"
+if (text.includes(oauthAnchor) && !text.includes("googleCalendarReturn")) {
+  text = text.replace(oauthAnchor, `${oauthAnchor}\n const googleCalendarReturn=true\n useEffect(()=>{\n   if(!googleCalendarReturn||!user||!studies.length||study)return\n   const params=new URLSearchParams(location.search)\n   const state=params.get('googleCalendar')\n   const studyId=params.get('studyId')\n   if((state==='connected'||state==='error')&&studyId){\n     const target=studies.find(s=>s.id===studyId)\n     if(target){setStudy(target);setTab('schedule');history.replaceState({},'',location.pathname)}\n   }\n },[user,studies,study])`)
+}
+
 const replacements = new Map([
   ['Research operations, without the spreadsheet.', '실험 운영을 한 곳에서 관리하세요.'],
   ['연구자는 각자 로그인하고 자신의 여러 실험만 관리합니다.', '참가자 모집, 신청서 작성, 일정 조율, 연락까지 한 곳에서 관리할 수 있습니다.'],
