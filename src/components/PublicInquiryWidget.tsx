@@ -3,7 +3,8 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function PublicInquiryWidget({studyId}:{studyId:string}){
+export default function PublicInquiryWidget({studyId,slug}:{studyId?:string;slug?:string}){
+  const[resolvedStudyId,setResolvedStudyId]=useState(studyId||'')
   const[open,setOpen]=useState(false)
   const[name,setName]=useState('')
   const[email,setEmail]=useState('')
@@ -20,12 +21,19 @@ export default function PublicInquiryWidget({studyId}:{studyId:string}){
     }catch{}
   },[])
 
+  useEffect(()=>{
+    if(studyId){setResolvedStudyId(studyId);return}
+    if(!slug)return
+    supabase.from('studies').select('id').eq('slug',slug).eq('status','published').maybeSingle().then(({data})=>setResolvedStudyId(data?.id||''))
+  },[studyId,slug])
+
   async function submit(e:FormEvent){
     e.preventDefault()
     if(busy)return
+    if(!resolvedStudyId){setError('현재 문의를 보낼 수 없습니다.');return}
     setBusy(true);setError('')
     const{error:rpcError}=await supabase.rpc('submit_public_inquiry',{
-      p_study_id:studyId,
+      p_study_id:resolvedStudyId,
       p_name:name.trim(),
       p_email:email.trim(),
       p_message:message.trim(),
@@ -50,7 +58,7 @@ export default function PublicInquiryWidget({studyId}:{studyId:string}){
         <label>이메일<input type="email" value={email} onChange={e=>setEmail(e.target.value)} maxLength={254} autoComplete="email" required/></label>
         <label>문의 내용<textarea value={message} onChange={e=>setMessage(e.target.value)} maxLength={4000} placeholder="일정, 장소, 참여 조건 등 궁금한 점을 입력해주세요." required/></label>
         {error&&<div className="public-inquiry-error">{error}</div>}
-        <div className="public-inquiry-foot"><span>답변은 입력한 이메일로 보내드립니다.</span><button className="btn" disabled={busy||!name.trim()||!email.trim()||!message.trim()}>{busy?'보내는 중…':'문의 보내기'}</button></div>
+        <div className="public-inquiry-foot"><span>답변은 입력한 이메일로 보내드립니다.</span><button className="btn" disabled={busy||!resolvedStudyId||!name.trim()||!email.trim()||!message.trim()}>{busy?'보내는 중…':'문의 보내기'}</button></div>
       </form>}
     </div>}
     <button type="button" className={`public-inquiry-fab ${open?'active':''}`} onClick={open?()=>setOpen(false):reopen} aria-expanded={open}>
