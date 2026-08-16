@@ -1,303 +1,354 @@
 # Research Align — Latest Session Handoff
 
-Handoff prepared: **2026-08-16 22:14 KST**
+Handoff prepared: **2026-08-16 23:09 KST**
 
-This file is the first operational document to read after `AGENTS.md` when opening a new development session. It is intentionally overwritten at the end of each session.
+This file is the operational checkpoint for the next conversation. Read root `AGENTS.md` first, then this file, `docs/PROJECT_STATE.md`, and `docs/SESSION_PROTOCOL.md`.
 
-## 1. Read first
+## 1. Session identity
 
-Before doing anything else:
+- repository: `stpcoder/research-align`
+- active branch: `main`
+- work status: `clean`
+- session topic: persistent cross-session development context and atomic commit/recovery protocol
+- next session should continue branch: `main`
+- no runtime feature is partially implemented
+- no uncommitted code state is being intentionally carried across sessions
 
-1. Read root `AGENTS.md`.
-2. Read this file completely.
-3. Read `docs/PROJECT_STATE.md`.
-4. If working on researcher/admin UI, read `docs/ADMIN_DESIGN_SYSTEM.md`.
-5. Verify actual GitHub `main` HEAD and live Supabase `deploy_control_state` before editing or deploying.
+## 2. Exact source state
 
-Do not rely on the SHA in this document as a substitute for live verification; writing this handoff itself creates a newer documentation-only commit.
+Current GitHub `main` immediately before this final handoff bookkeeping commit:
 
-## 2. Current session status
-
-There is **no partially implemented runtime patch in flight**.
-
-The previous application-development sequence finished with production code `dd5eab06280f78f37d5926f4d940ef697c04d4b0`, and production is READY on that code.
-
-This session did not change application runtime behavior. It established persistent multi-session development documentation so future conversations can continue from the repository itself.
-
-## 3. GitHub state
-
-Repository:
-
-`stpcoder/research-align`
-
-Branch:
-
-`main`
-
-Application/runtime code baseline currently deployed:
-
-`dd5eab06280f78f37d5926f4d940ef697c04d4b0`
+`babaa5dde98921299e79bff9fd1040cbb4ecb6b5`
 
 Message:
 
-`Fix date window type check`
+`docs(dev): establish cross-session commit protocol`
 
-After that runtime commit, documentation-only commits were added in this handoff-preparation session:
+The final commit containing this HANDOFF and the DEVELOPMENT_LOG update will be newer than `babaa5...`; the next session must query live `main` HEAD as required by `AGENTS.md`.
 
-- `a2e71c277bd8f22f2d1e84f1f84cde2d2863bf51` — add persistent `AGENTS.md`
-- `f39b17e4aaa42122981164bf420c63eacc61d5dd` — add `docs/PROJECT_STATE.md`
-- `086fd92c08f1efdcc0505a39ce592ccf3a83aeff` — add `docs/DEVELOPMENT_LOG.md`
-- the commit that adds this `docs/HANDOFF.md` is newer than the SHA above and must be discovered from live `main` on the next session
+### Runtime/source distinction
 
-Important: these documentation-only commits have **not** been production-deployed, because they do not change application runtime behavior. Therefore GitHub `main` being ahead of production `commitSha` is expected at this handoff boundary.
+- last runtime-affecting application commit: `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
+- deployed production commit: `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
+- current repository HEAD is ahead only because cross-session development documentation/protocol commits were added
+- there is no unexplained runtime drift
 
-## 4. Production deployment state
+### Commits created while establishing repository memory/protocol
 
-Live Supabase `deploy_control_state` was re-queried immediately before writing this handoff.
+1. `a2e71c277bd8f22f2d1e84f1f84cde2d2863bf51` — add persistent root `AGENTS.md`
+2. `f39b17e4aaa42122981164bf420c63eacc61d5dd` — add durable `docs/PROJECT_STATE.md`
+3. `086fd92c08f1efdcc0505a39ce592ccf3a83aeff` — add append-only `docs/DEVELOPMENT_LOG.md`
+4. `079fe2d51eb2d91d603fa06a70dc5896b6e2d9cd` — add rolling `docs/HANDOFF.md`
+5. `babaa5dde98921299e79bff9fd1040cbb4ecb6b5` — atomically strengthen `AGENTS.md` and add `docs/SESSION_PROTOCOL.md` + `docs/HANDOFF_TEMPLATE.md`
+6. final handoff bookkeeping commit — contains this file plus the matching DEVELOPMENT_LOG entry; query live `main` to obtain its SHA
 
-Current state:
+The important commit-discipline change is commit 5: the three files form one logical change and were intentionally committed as one Git tree/commit rather than arbitrary per-file commits.
 
-- project: `research-align`
+## 3. In-progress work
+
+### Current logical unit
+
+None.
+
+### Completed
+
+The repository now contains a durable cross-session development system covering:
+
+- mandatory startup reading order
+- live-state baseline verification
+- source/DB/Edge/Vercel/behavior state separation
+- one-logical-change-per-commit discipline
+- atomic multi-file commits
+- conventional commit naming
+- small direct-main vs large `work/YYYYMMDD-topic` branch policy
+- DB migration rollout rules including expand/deploy/contract
+- Edge Function auth/probe cleanup bookkeeping
+- production deployment verification rules
+- interrupted-session recovery algorithm
+- mandatory final handoff + development-log commit
+- reusable `docs/HANDOFF_TEMPLATE.md`
+
+### Not complete
+
+No product/runtime feature is intentionally left unfinished from this documentation session.
+
+### Uncommitted/unsafe state
+
+None known. GitHub is the durable state.
+
+## 4. Production application state
+
+Live `public.deploy_control_state` was queried again at the end of this session.
+
+- Vercel project: `research-align`
 - Vercel project ID: `prj_m1b582jShPhKBRfxY8GLDxAPFrGQ`
-- deployment ID: `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
+- production deployment ID: `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
 - status: `READY`
 - production URL: `https://research-align.vercel.app`
-- deployed application commit: `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
-- recorded deployment update: 2026-08-16 18:52:41 KST
+- production commit: `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
+- deploy-control state updated: `2026-08-16 18:52:41 KST`
 
-Do not create a new Vercel project if the Vercel connector does not list this project. The connector's visible scope has previously differed from the operational control-plane scope.
+### Source/deployment drift
 
-## 5. Supabase production state
+Expected and explained:
 
-Project:
+```text
+GitHub main
+  dd5eab... runtime code
+  + documentation/protocol-only commits
 
-`rgwqsqeikebwunbdnbex`
+Production runtime
+  dd5eab...
+```
 
-Region:
+No application deployment was triggered because this session did not change runtime behavior.
 
-`ap-northeast-1`
+Do not create a new Vercel project if the top-level Vercel connector cannot list this one. Query Supabase `deploy_control_state` first.
 
-Status at the architecture verification pass:
+## 5. Supabase state
 
-`ACTIVE_HEALTHY`
+- project: `rgwqsqeikebwunbdnbex`
+- region: `ap-northeast-1`
+- no database mutation was made in this session
+- no migration was applied in this session
+- latest previously verified important runtime migration remains `buffer_aware_schedule_conflicts`
 
-Latest important applied migration from the previous runtime-development session:
+### Migrations involved this session
 
-`buffer_aware_schedule_conflicts`
+None.
 
-The production database already contains the multi-study scheduling, cancellation notification, inquiry matching, ClawMail, and buffer-aware conflict changes described in `docs/PROJECT_STATE.md`.
+### Functions / triggers / RLS changed this session
 
-## 6. What was done in this session
+None.
 
-### Added root `AGENTS.md`
+## 6. Edge Functions
 
-Purpose: durable instructions for all future AI/developer sessions.
+No Edge Function was changed or deployed in this session.
 
-It defines:
+### Temporary probes
 
-- mandatory reading order
-- source-of-truth hierarchy
-- production identifiers
-- deployment-control architecture
-- Vercel connector caveat
-- build-time `page.tsx` rewrite caveat
-- scheduling/database invariants
-- contact/ClawMail boundaries
-- public inquiry matching constraints
-- security rules
-- standard development workflow
-- mandatory end-of-session documentation workflow
-- recommended next-session prompt
+No new temporary probe was created.
 
-### Added `docs/PROJECT_STATE.md`
+Previously known test/probe functions were already verified as disabled/JWT-protected HTTP 410 stubs where applicable in the prior architecture audit.
 
-Purpose: durable description of what the system currently is.
+## 7. Repository-memory files now in use
 
-It captures:
+### `AGENTS.md`
 
-- product scope
-- production architecture
-- application stack and source layout
-- auth/multi-tenancy
-- dashboard
-- form builder
-- participant flow
-- owner-wide scheduling and lifecycle
-- response management/export
-- public inquiries
-- contact state machine
-- ClawMail transport
-- schedule notification audit flow
-- SMS/Google Calendar legacy status
-- Supabase/Vercel deployment control plane
-- active vs disabled Edge Functions
-- core database objects
-- known technical debt and hardening backlog
+Durable contract. It now explicitly requires:
 
-### Added `docs/DEVELOPMENT_LOG.md`
+- one logical change per commit
+- atomic multi-file feature commits
+- prompt commit of completed checkpoints
+- work branches for risky/multi-session changes
+- conventional commit categories
+- migration/source synchronization
+- interrupted-session recovery
+- final handoff commit
 
-Purpose: append-only history across development sessions.
+### `docs/SESSION_PROTOCOL.md`
 
-Initial entries summarize:
+Concrete step-by-step lifecycle:
 
-- this documentation/handoff setup
-- multi-study operational improvements
-- ClawMail/inquiry/notification work
-- initial production/deployment-control architecture
+```text
+session start
+→ live baseline
+→ classify task
+→ logical work-item loop
+→ verify
+→ atomic commit
+→ DB/Edge rollout if relevant
+→ production deploy if intended
+→ production behavior verification
+→ final handoff/log commit
+```
 
-### Added this `docs/HANDOFF.md`
+It also explicitly models five separate completion states:
 
-Purpose: rolling latest state for the next conversation/session.
+1. source committed
+2. DB applied
+3. Edge Function deployed
+4. app deployed
+5. behavior verified
 
-## 7. Important implementation state to preserve
+### `docs/HANDOFF_TEMPLATE.md`
 
-The following are already implemented. Do not accidentally re-build them as if they were TODOs.
+Required structure for every future session handoff, including exact SHA/deployment/migration/function/test/next-action fields.
+
+### `docs/HANDOFF.md`
+
+Rolling current state. Replace at each normal session end.
+
+### `docs/DEVELOPMENT_LOG.md`
+
+Append-only durable history. Newest entries go at the top.
+
+### `docs/PROJECT_STATE.md`
+
+Durable product/architecture state. Update only when actual product architecture changes.
+
+## 8. Existing product/runtime state to preserve
+
+The repository-memory work did not change these implemented behaviors.
 
 ### Multi-study scheduling
 
-- schedule view loads researcher-visible assignments across studies
-- overlapping sessions across studies are blocked
-- database trigger enforces owner-wide overlap prevention
-- participant public busy intervals are owner-wide
-- participant form rechecks busy intervals before submission
-- duration and session buffer affect conflict calculations
+- researcher-wide conflict visibility
+- DB owner-wide overlap enforcement
+- owner-wide public busy intervals
+- participant recheck before submission
+- duration + `bufferMinutes` conflict handling
+- session order and `maxSessionsPerDay`
+- direct researcher-agreed scheduling
+- 4-date schedule window
 
-### Scheduling lifecycle
+### Assignment lifecycle
 
-- assignment statuses: `confirmed`, `completed`, `no_show`, `cancelled`
-- cancellation preserves the row
-- participant state distinguishes unscheduled/partial/scheduled/handled
-- direct researcher-agreed scheduling exists
-- session order and max-sessions-per-day exist
-- date window navigation exists
+- `confirmed`
+- `completed`
+- `no_show`
+- `cancelled`
+- cancellation preserves rows
 
 ### Form Builder
 
-- date ranges / 7-day addition exist
-- location exists
-- participant instructions exist
-- `bufferMinutes` exists
-- dirty-state / unsaved-change warning exists
+- range/7-day date addition
+- location
+- participant instructions
+- buffer
+- dirty-state warning
 
 ### Dashboard
 
-- today's sessions
-- unscheduled participants
-- reply required
+- today
+- unscheduled
+- reply-needed
 - mail failure
 - per-study counts
-- cross-study upcoming agenda
+- cross-study agenda
 
 ### Contact/email
 
-- ClawMail is current email provider
-- public inquiries exist
-- inquiry/applicant matching exists
-- contact thread states are pending/open/closed
-- pending inquiry remains pending after automatic schedule email
-- schedule emails are marked as automatic notices in conversation history
-- schedule confirmation/change/cancellation notifications are audited
-- provider failure does not roll back scheduling state
+- ClawMail is current transport
+- Supabase contact tables are source of truth
+- public inquiries and conservative applicant matching
+- thread states pending/open/closed
+- automatic schedule email does not clear pending inquiry
+- confirmation/change/cancellation notification audit
+- email provider failure does not roll back schedule state
 
-### Removed/non-current behavior
+### Removed/legacy behavior
 
 - SMS is not a current product feature
-- Google Calendar is removed; remaining functions are HTTP 410 stubs
-- KeyID is legacy, not the current email transport
+- Google Calendar is removed; legacy functions are disabled stubs
+- KeyID is legacy, not current transport
 
-## 8. Critical code-maintenance warning
+## 9. Critical source-maintenance warning
 
-Do not edit `src/app/page.tsx` assuming it is canonical.
+Current runtime still uses build-time rewriting:
 
-`npm run dev` and `npm run build` execute:
+`package.json` → `scripts/prebuild-ui-copy.mjs` → rewrites `src/app/page.tsx`
 
-`scripts/prebuild-ui-copy.mjs`
-
-which rewrites `page.tsx` and swaps legacy inline implementations for current Unified components.
-
-For current behavior, inspect/edit these first:
+Current primary components:
 
 - `src/components/ResearchHome.tsx`
 - `src/components/FormBuilderUnified.tsx`
 - `src/components/ResponseManagerUnified.tsx`
 - `src/components/ScheduleUnified.tsx`
 - `src/components/ContactManager.tsx`
+- `src/components/ParticipantForm.tsx`
 
-Removing the rewrite layer is valid technical-debt work, but it must be done deliberately with behavior parity.
+Do not edit or reason from `src/app/page.tsx` alone without checking the prebuild script.
 
-## 9. Deployment procedure for a future runtime change
+## 10. Verification actually performed this session
 
-When the next session makes an actual runtime change:
+### Repository verification
 
-1. verify current GitHub `main`
-2. verify current `deploy_control_state`
-3. modify/commit source
-4. apply and verify Supabase migration/function changes if needed
-5. run relevant build/type/lint checks
-6. use the established Supabase deployment control plane, not a newly created Vercel project
-7. wait for/verify READY
-8. verify `deploy_control_state.details.commitSha` equals the intended runtime source SHA
-9. test the relevant production path
-10. disable/remove any temporary probe infrastructure
-11. update this handoff and append the development log
+- `[PASS]` fetched existing `AGENTS.md` and `docs/HANDOFF.md`
+- `[PASS]` fetched existing `docs/DEVELOPMENT_LOG.md`
+- `[PASS]` confirmed pre-protocol `main` HEAD `079fe2d...`
+- `[PASS]` created one atomic Git tree containing updated `AGENTS.md`, new `SESSION_PROTOCOL.md`, and new `HANDOFF_TEMPLATE.md`
+- `[PASS]` created commit `babaa5dde98921299e79bff9fd1040cbb4ecb6b5`
+- `[PASS]` fast-forwarded `main` to `babaa5...`
+- `[PASS]` re-fetched `main` and confirmed it points to `babaa5...`
 
-Primary deployment architecture is documented in `deploy-control/README.md` and `docs/PROJECT_STATE.md`.
+### Production/deploy verification
 
-## 10. Known risks / unresolved items
+- `[PASS]` re-queried `public.deploy_control_state`
+- `[PASS]` deployment remains `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
+- `[PASS]` status remains `READY`
+- `[PASS]` production commit remains `dd5eab...`
+- `[PASS]` production URL remains `https://research-align.vercel.app`
+
+### Runtime/application verification
+
+Not rerun because no runtime code, DB, or Edge Function changed in this session.
+
+## 11. Bugs/findings from this session
+
+### Previous documentation system was correct but insufficiently strict
+
+Impact:
+
+- it documented session startup/end but did not precisely define atomic multi-file commits, branch strategy, staged DB rollout, or crash recovery state reconstruction
+
+Resolution:
+
+- fixed by `babaa5dde98921299e79bff9fd1040cbb4ecb6b5`
+
+## 12. Known unresolved risks/backlog
 
 ### P0 before real participant scale
 
-- **ClawMail quota/capacity**: E2E testing encountered `Daily send limit of 5 reached`. The application handles failure safely, but actual provider capacity must be resolved before substantial participant mail volume.
+- ClawMail sending capacity/quota. Prior E2E encountered `Daily send limit of 5 reached`.
 
-### P1 operational hardening
+### P1 maintainability/operations
 
-- `main` currently has no branch protection or required build/lint checks.
-- production contains demo/test data and should be deliberately cleaned before a real pilot.
-- provider/deploy probe and KeyID-era artifacts should be cleaned after dependency review.
-- stale README / `SOURCE_MANIFEST.json` content should eventually be reconciled with current architecture.
+- remove build-time `page.tsx` rewriting with behavior parity
+- add CI and branch protection for `main`
+- clean production demo/test data before real pilot
+- clean stale KeyID/probe/README/SOURCE_MANIFEST state
 
-### P1 maintainability
-
-- eliminate `scripts/prebuild-ui-copy.mjs` source rewriting and make current UI source canonical.
-
-### P2 DB/security/performance cleanup
+### P2 security/performance
 
 - review/revoke unnecessary anonymous `create_demo_study()` EXECUTE privilege
-- review intentionally public SECURITY DEFINER RPC grants
-- consider Supabase leaked-password protection
-- consider indexes for `contact_threads.response_id`, `notifications.response_id`, and `studies.owner_id`
+- review intentionally public SECURITY DEFINER grants
+- consider leaked-password protection
+- consider indexes for `contact_threads.response_id`, `notifications.response_id`, `studies.owner_id`
 
-## 11. Immediate next task
+## 13. Exact next action
 
-There is no unfinished code change that must be completed first.
+There is no incomplete implementation to recover first.
 
-The next session can start directly with the user's next requested product/development task after performing the baseline verification required by `AGENTS.md`.
+The next session should:
 
-If no new feature is specified, the recommended engineering order is:
+> Read `AGENTS.md`, follow `docs/SESSION_PROTOCOL.md`, verify live GitHub/Supabase/deployment baseline, then begin the user's next product-development request. Commit each completed logical change before starting the next independent change.
 
-1. resolve ClawMail sending capacity for pilot readiness
-2. remove the build-time source rewrite while preserving behavior
-3. add CI/branch protection
-4. clean legacy/probe/docs state
-5. security/index hardening
+If the next requested feature is large or likely to span sessions, create `work/YYYYMMDD-<topic>` immediately and record it in the next HANDOFF.
 
-Do not silently perform these cleanup items when the user has asked for a different product feature; they are backlog priorities, not blockers for every change.
+## 14. Recovery instructions if this handoff is stale
 
-## 12. Temporary infrastructure status
+1. query current GitHub `main` HEAD
+2. inspect commits newer than `babaa5dde98921299e79bff9fd1040cbb4ecb6b5`
+3. inspect any `work/*` branch named in a newer handoff
+4. query Supabase migration history if runtime/DB work appeared
+5. query relevant Edge Function versions
+6. query `deploy_control_state`
+7. reconstruct this table before writing code:
 
-No new temporary runtime probe was created in this documentation session.
+```text
+change | source committed | DB applied | edge deployed | app deployed | behavior verified
+```
 
-Previously created testing functions were rechecked in the prior architecture pass and were disabled as JWT-required HTTP 410 stubs where applicable.
+## 15. Documentation state
 
-## 13. Verification performed in this documentation session
+- `AGENTS.md`: updated this session
+- `docs/SESSION_PROTOCOL.md`: added this session
+- `docs/HANDOFF_TEMPLATE.md`: added this session
+- `docs/PROJECT_STATE.md`: unchanged; no durable runtime architecture change
+- `docs/DEVELOPMENT_LOG.md`: final session entry updated with this handoff
+- final handoff commit: this file's commit; next session should query live `main` HEAD to obtain the exact SHA
 
-- confirmed current GitHub `main` after the first three documentation commits was `086fd92c08f1efdcc0505a39ce592ccf3a83aeff`
-- re-queried `public.deploy_control_state`
-- confirmed production deployment remains `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
-- confirmed deployment status remains `READY`
-- confirmed deployed runtime code remains `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
-- no production deployment was triggered because this session changed documentation only
+## 16. Suggested exact prompt for the next chat
 
-## 14. Suggested exact prompt for the next chat
-
-> `stpcoder/research-align` 개발을 이어가자. GitHub `main`의 `AGENTS.md`, `docs/HANDOFF.md`, `docs/PROJECT_STATE.md`를 먼저 전부 읽어. UI 작업이면 `docs/ADMIN_DESIGN_SYSTEM.md`도 읽어. 문서 내용은 handoff로 사용하되, 작업 전에 실제 GitHub `main` HEAD와 Supabase `deploy_control_state`를 다시 확인해. 그 다음 내가 요청하는 개발을 기존 architecture와 invariant를 깨지 않게 진행하고, 필요하면 Supabase migration/Edge Function과 production deployment까지 끝까지 검증해. 세션 종료 전에는 `docs/HANDOFF.md`를 최신 상태로 교체하고 `docs/DEVELOPMENT_LOG.md`에 이번 작업을 append해.`
+> `stpcoder/research-align` 개발을 이어가자. 다른 대화의 기억을 가정하지 말고 GitHub `main`의 `AGENTS.md`부터 읽어서 거기에 적힌 startup protocol을 그대로 수행해. `docs/HANDOFF.md`, `docs/PROJECT_STATE.md`, `docs/SESSION_PROTOCOL.md`를 읽고, UI 작업이면 `docs/ADMIN_DESIGN_SYSTEM.md`도 읽어. 실제 GitHub branch/HEAD와 Supabase `deploy_control_state`를 다시 확인한 뒤 HANDOFF의 exact next action에서 이어가. 하나의 논리적 수정이 끝나고 검증될 때마다 atomic commit을 만들고 다음 독립 수정으로 넘어가. DB/Edge/Vercel 상태는 source commit과 별도로 추적하고, 세션 종료 전 HANDOFF를 교체하고 DEVELOPMENT_LOG를 append한 뒤 그것도 commit해.`

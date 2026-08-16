@@ -12,6 +12,67 @@ Rules:
 
 ---
 
+## 2026-08-16 KST — Cross-session commit and recovery protocol hardened
+
+### Goal
+
+Turn the repository from a passive handoff document store into an explicit operating system for development across many ChatGPT/Codex conversations.
+
+The user requirement was that completed modifications be committed reliably and that a new conversation be able to continue immediately without reconstructing context from old chat history.
+
+### Commit
+
+- `babaa5dde98921299e79bff9fd1040cbb4ecb6b5` — `docs(dev): establish cross-session commit protocol`
+
+This was deliberately created as one atomic multi-file commit using a Git tree because all three documentation changes form one logical development-process feature.
+
+### Changed
+
+- strengthened root `AGENTS.md`
+  - one logical change per commit
+  - atomic multi-file commit rule
+  - commit completed checkpoints promptly
+  - direct-main rule for small verified fixes
+  - `work/YYYYMMDD-<topic>` branch rule for large/risky/multi-session work
+  - conventional commit categories
+  - DB migration/source synchronization rules
+  - expand/deploy/contract guidance for breaking DB changes
+  - final handoff as its own commit
+  - interrupted-session recovery procedure
+- added `docs/SESSION_PROTOCOL.md`
+  - explicit five-state model: source / DB / Edge Function / app deployment / behavior verification
+  - mandatory session preflight
+  - repeatable logical work-item loop
+  - branch strategy
+  - DB and Edge rollout procedure
+  - production deployment verification
+  - crash/interruption recovery algorithm
+- added `docs/HANDOFF_TEMPLATE.md`
+  - exact branch/commit/runtime/deployment fields
+  - in-progress boundary
+  - migrations and Edge Function tables
+  - verification evidence
+  - source/deployment drift explanation
+  - exact next action
+  - recovery instructions
+
+### Verification
+
+- confirmed `main` before the protocol commit was `079fe2d51eb2d91d603fa06a70dc5896b6e2d9cd`
+- created the protocol changes as one Git tree and commit
+- fast-forwarded `main` to `babaa5dde98921299e79bff9fd1040cbb4ecb6b5`
+- re-read branch metadata and confirmed `main` points to `babaa5...`
+- re-queried live Supabase `deploy_control_state`
+- confirmed production remains `READY` on deployment `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
+- confirmed production still runs runtime commit `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
+- no production deployment was triggered because the changes are repository-process documentation only
+
+### Durable operating rule established
+
+Every future session should lose at most the currently incomplete logical unit if interrupted. Every completed independent change should already exist as a retrievable Git commit before the next independent change begins.
+
+---
+
 ## 2026-08-16 KST — Persistent multi-session development handoff established
 
 ### Goal
