@@ -6,6 +6,7 @@ import type { FormField, ResponseRow, Study } from '@/lib/types'
 import { AdminListItem, AdminPageHeader, AdminPanelHeader, AdminSplitView, AdminSurface, StatusBadge } from '@/components/admin/AdminUI'
 
 type Assignment={id:string;study_id:string;response_id:string;session_key:string;session_label:string;starts_at:string;ends_at:string;status:'confirmed'|'completed'|'cancelled'}
+type OtherSelection={name:string;rank:number}
 
 const fmtDateTime=(iso:string)=>new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(iso))
 const fmtDay=(day:string)=>new Date(`${day}T00:00:00+09:00`).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric',weekday:'short'})
@@ -70,7 +71,8 @@ export default function ScheduleUnified({study}:{study:Study}){
   const times=useMemo(()=>activeField?buildTimes(activeField):[],[activeField])
 
   function rankFor(row:ResponseRow,field:FormField,slot:string){const pref=row.preferences?.[field.id]||{};const found=Object.entries(pref).find(([,value])=>value===slot);return found?Number(found[0]):0}
-  function otherAvailabilityCount(field:FormField,slot:string,rowId:string){return responses.reduce((count,row)=>count+(row.id!==rowId&&(row.availability?.[field.id]||[]).includes(slot)?1:0),0)}
+  function otherSelections(field:FormField,slot:string,rowId:string):OtherSelection[]{return responses.filter(row=>row.id!==rowId&&(row.availability?.[field.id]||[]).includes(slot)).map(row=>({name:participantName(row),rank:rankFor(row,field,slot)}))}
+  function otherSelectionDetail(items:OtherSelection[]){const shown=items.slice(0,2).map(item=>`${item.name}${item.rank?` ${item.rank}순위`:''}`);if(items.length>2)shown.push(`외 ${items.length-2}명`);return shown.join(' · ')}
   function cellInterval(slot:string,field:FormField){const start=new Date(`${slot}:00+09:00`).getTime();return{start,end:start+(field.stepMinutes||30)*60_000}}
   function assignmentCoveringCell(slot:string,field:FormField){const cell=cellInterval(slot,field);return assignments.find(a=>{if(a.status==='cancelled')return false;const start=new Date(a.starts_at).getTime(),end=new Date(a.ends_at).getTime();return cell.start<end&&cell.end>start})||null}
   function startsHere(a:Assignment,slot:string,field:FormField){const cell=cellInterval(slot,field),start=new Date(a.starts_at).getTime();return start>=cell.start&&start<cell.end}
@@ -133,9 +135,23 @@ export default function ScheduleUnified({study}:{study:Study}){
         </AdminSurface>}
 
         {selected&&activeField&&<AdminSurface className="ss-grid-panel">
-          <div className="ss-grid-head"><div><h3>{activeField.sessionLabel||activeField.label} 시간표</h3><p>셀을 눌러도 바로 저장되지 않습니다. 검은 테두리의 ‘선택됨’을 확인한 뒤 아래 확정 버튼을 누르세요.</p></div><div className="ss-legend"><span><i className="available"/>선택 가능</span><span><i className="preferred"/>선호 시간</span><span><i className="chosen"/>선택됨</span><span><i className="current"/>현재 확정</span><span><i className="occupied"/>예약됨</span></div></div>
+          <div className="ss-grid-head"><div><h3>{activeField.sessionLabel||activeField.label} 시간표</h3><p>큰 글씨는 현재 참가자의 선택입니다. 같은 시간을 다른 참가자도 골랐을 때만 아래에 이름과 순위를 표시합니다.</p></div><div className="ss-legend"><span><i className="available"/>선택 가능</span><span><i className="preferred"/>1·2순위</span><span><i className="others"/>다른 참가자 선택</span><span><i className="chosen"/>선택됨</span><span><i className="current"/>확정</span><span><i className="occupied"/>예약됨</span></div></div>
           {missingPrior&&<div className="ss-blocked-note">먼저 <b>{missingPrior.sessionLabel||missingPrior.label}</b> 일정을 확정해야 이 세션을 정할 수 있습니다.</div>}
-          <div className="ss-grid-scroll"><div className="ss-grid" style={{gridTemplateColumns:`78px repeat(${Math.max(dates.length,1)}, minmax(170px,1fr))`}}><div className="ss-corner">시간</div>{dates.map(day=><div className="ss-date" key={day}>{fmtDay(day)}</div>)}{times.flatMap(time=>[<div className="ss-time" key={`time-${time}`}>{time}</div>,...dates.map(day=>{const slot=`${day}T${time}`;const available=(selected.availability?.[activeField.id]||[]).includes(slot);const rank=rankFor(selected,activeField,slot);const others=otherAvailabilityCount(activeField,slot,selected.id);const covering=assignmentCoveringCell(slot,activeField);const own=!!covering&&covering.response_id===selected.id&&covering.session_key===sessionKey(activeField);const start=covering?startsHere(covering,slot,activeField):false;const chosen=pendingSlot===slot;const state=covering?own?'current':'occupied':chosen?'chosen':available?rank?'preferred':'available':'unavailable';const canChoose=!missingPrior&&!covering&&available&&!busy;return<button type="button" key={slot} className={`ss-cell ${state}`} disabled={!canChoose} onClick={()=>chooseSlot(slot)}>{covering?own?<><span className="ss-cell-label">현재 확정</span><strong>{start?`${participantName(selected)} · ${covering.session_label}`:'내 일정 진행 중'}</strong><small>{start?fmtDateTime(covering.starts_at):'현재 일정에 포함된 시간'}</small></>:<><span className="ss-cell-label">예약됨</span><strong>{start?`${participantNameById(covering.response_id)} · ${covering.session_label}`:'다른 일정 진행 중'}</strong><small>{available?`${participantName(selected)}도 선택했던 시간`:'다른 사람에게 이미 배정됨'}</small></>:chosen?<><span className="ss-cell-label">선택됨</span><strong>{rank?`${rank}순위 선호 시간`:'참가자 가능 시간'}</strong><small>아직 저장되지 않았습니다.</small></>:available?<><span className="ss-cell-label">선택 가능</span><strong>{rank?`${rank}순위 선호`:'참가자 가능'}</strong><small>{others?`다른 신청자 ${others}명도 가능`:'다른 신청자 선택 없음'}</small></>:<><span className="ss-cell-label">선택 불가</span><strong>이 참가자가 선택하지 않음</strong><small>{others?`다른 신청자 ${others}명은 가능`:'—'}</small></>}</button>})])}</div></div>
+          <div className="ss-grid-scroll"><div className="ss-grid" style={{gridTemplateColumns:`78px repeat(${Math.max(dates.length,1)}, minmax(170px,1fr))`}}><div className="ss-corner">시간</div>{dates.map(day=><div className="ss-date" key={day}>{fmtDay(day)}</div>)}{times.flatMap(time=>[<div className="ss-time" key={`time-${time}`}>{time}</div>,...dates.map(day=>{
+            const slot=`${day}T${time}`
+            const available=(selected.availability?.[activeField.id]||[]).includes(slot)
+            const rank=rankFor(selected,activeField,slot)
+            const others=otherSelections(activeField,slot,selected.id)
+            const covering=assignmentCoveringCell(slot,activeField)
+            const own=!!covering&&covering.response_id===selected.id&&covering.session_key===sessionKey(activeField)
+            const start=covering?startsHere(covering,slot,activeField):false
+            const chosen=pendingSlot===slot
+            const state=covering?own?'current':'occupied':chosen?'chosen':available?rank?'preferred':'available':others.length?'others':'empty'
+            const canChoose=!missingPrior&&!covering&&available&&!busy
+            return<button type="button" key={slot} className={`ss-cell ${state}`} disabled={!canChoose} onClick={()=>chooseSlot(slot)}>
+              {covering?own?(start?<><strong>{covering.status==='completed'?'완료':'확정됨'}</strong></>:null):(start?<><strong>예약됨</strong><small>{participantNameById(covering.response_id)}</small></>:null):chosen?<><strong>선택됨</strong>{rank>0&&<small>{rank}순위</small>}</>:available?<><strong>{rank?`${rank}순위`:'선택 가능'}</strong>{others.length>0&&<><small>다른 참가자 {others.length}명 선택</small><small className="ss-cell-others">{otherSelectionDetail(others)}</small></>}</>:others.length>0?<><strong>다른 참가자 {others.length}명 선택</strong><small className="ss-cell-others">{otherSelectionDetail(others)}</small></>:null}
+            </button>
+          })])}</div></div>
         </AdminSurface>}
 
         {selected&&activeField&&pendingSlot&&<div className="ss-confirm-bar"><div><small>아직 저장되지 않은 선택</small><strong>{participantName(selected)} · {activeField.sessionLabel||activeField.label}</strong><span>{fmtDateTime(new Date(`${pendingSlot}:00+09:00`).toISOString())} · {activeField.duration||60}분</span></div><div className="ss-confirm-actions"><button className="btn secondary" onClick={()=>setPendingSlot(null)}>선택 취소</button><button className="btn" disabled={busy} onClick={confirmPending}>{busy?'저장 중…':currentAssignment?'이 시간으로 변경':'이 시간으로 확정'}</button></div></div>}
