@@ -5,13 +5,37 @@ import { supabase } from '@/lib/supabase'
 import type { FormField, ResponseRow, Study } from '@/lib/types'
 import { AdminListItem, AdminPageHeader, AdminPanelHeader, AdminSplitView, AdminSurface, StatusBadge } from '@/components/admin/AdminUI'
 
-type Assignment={id:string;study_id:string;response_id:string;session_key:string;session_label:string;starts_at:string;ends_at:string;status:'confirmed'|'completed'|'cancelled'}
+type Assignment={
+  id:string
+  study_id:string
+  response_id:string
+  session_key:string
+  session_label:string
+  starts_at:string
+  ends_at:string
+  status:'confirmed'|'completed'|'cancelled'
+  scheduling_source?:'participant_selection'|'admin_agreed'
+  agreement_confirmed_at?:string|null
+}
 type OtherSelection={name:string;rank:number}
 
 const fmtDateTime=(iso:string)=>new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(iso))
 const fmtDay=(day:string)=>new Date(`${day}T00:00:00+09:00`).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric',weekday:'short'})
 function kstSlot(iso:string){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(iso));const get=(t:string)=>parts.find(p=>p.type===t)?.value||'';return`${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`}
 function buildTimes(field:FormField){const[start,end]=(field.hours||'10:00-18:00').split('-');const[sh,sm]=start.split(':').map(Number),[eh,em]=end.split(':').map(Number);const step=Math.max(5,field.stepMinutes||30);const result:string[]=[];for(let minute=sh*60+sm;minute<eh*60+em;minute+=step)result.push(`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`);return result}
+function timeText(minutes:number){return`${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`}
+function fieldAllowsSlot(field:FormField,slot:string){
+  const blocked=new Set(field.blockedSlots||[])
+  if(!blocked.size)return true
+  const [day,time]=slot.split('T')
+  const [h,m]=time.split(':').map(Number)
+  const step=Math.max(5,field.stepMinutes||30)
+  const duration=field.duration||60
+  for(let minute=h*60+m;minute<h*60+m+duration;minute+=step){
+    if(blocked.has(`${day}T${timeText(minute)}`))return false
+  }
+  return true
+}
 
 export default function ScheduleUnified({study}:{study:Study}){
   const[responses,setResponses]=useState<ResponseRow[]>([])
@@ -19,6 +43,8 @@ export default function ScheduleUnified({study}:{study:Study}){
   const[selectedId,setSelectedId]=useState('')
   const[activeSessionKey,setActiveSessionKey]=useState('')
   const[pendingSlot,setPendingSlot]=useState<string|null>(null)
+  const[pendingManual,setPendingManual]=useState(false)
+  const[directMode,setDirectMode]=useState(false)
   const[busy,setBusy]=useState(false)
 
   const rawFields=useMemo(()=>study.form_config.fields.filter(f=>f.type==='availability'),[study.form_config.fields])
@@ -50,13 +76,15 @@ export default function ScheduleUnified({study}:{study:Study}){
     setActiveSessionKey(current=>current&&fields.some(field=>sessionKey(field)===current)?current:fields[0]?sessionKey(fields[0]):'')
   }
   useEffect(()=>{load()},[study.id])
-  useEffect(()=>{setPendingSlot(null)},[selectedId,activeSessionKey])
+  useEffect(()=>{setPendingSlot(null);setPendingManual(false);setDirectMode(false)},[selectedId,activeSessionKey])
 
   function firstUnscheduledField(row:ResponseRow){return fields.find(field=>!assignmentFor(row,field))||fields[0]||null}
   function selectParticipant(id:string){
     const row=responses.find(item=>item.id===id)
     setSelectedId(id)
     setPendingSlot(null)
+    setPendingManual(false)
+    setDirectMode(false)
     const next=row?firstUnscheduledField(row):null
     if(next)setActiveSessionKey(sessionKey(next))
   }
@@ -85,29 +113,47 @@ export default function ScheduleUnified({study}:{study:Study}){
   const missingPrior=selected&&activeField?priorMissing(selected,activeField):null
 
   function chooseSlot(slot:string){
-    if(!selected||!activeField||missingPrior)return
-    if(!(selected.availability?.[activeField.id]||[]).includes(slot))return
+    if(!selected||!activeField||missingPrior||!fieldAllowsSlot(activeField,slot))return
+    const participantSelected=(selected.availability?.[activeField.id]||[]).includes(slot)
+    if(!participantSelected&&!directMode)return
     const start=new Date(`${slot}:00+09:00`).getTime(),end=start+(activeField.duration||60)*60_000
     const conflict=assignments.find(a=>{if(a.status==='cancelled')return false;if(a.response_id===selected.id&&a.session_key===sessionKey(activeField))return false;const s=new Date(a.starts_at).getTime(),e=new Date(a.ends_at).getTime();return start<e&&end>s})
     if(conflict)return
-    setPendingSlot(current=>current===slot?null:slot)
+    if(pendingSlot===slot){setPendingSlot(null);setPendingManual(false);return}
+    setPendingSlot(slot)
+    setPendingManual(!participantSelected)
   }
 
   async function confirmPending(){
     if(!selected||!activeField||!pendingSlot||busy)return
     const missing=priorMissing(selected,activeField)
     if(missing)return alert(`${missing.sessionLabel||missing.label} 일정을 먼저 확정해주세요.`)
-    if(!(selected.availability?.[activeField.id]||[]).includes(pendingSlot))return alert('참가자가 선택하지 않은 시간입니다.')
+    const participantSelected=(selected.availability?.[activeField.id]||[]).includes(pendingSlot)
+    if(!participantSelected&&!pendingManual)return alert('직접 협의한 시간으로 다시 선택해주세요.')
+    if(!fieldAllowsSlot(activeField,pendingSlot))return alert('관리자가 사용하지 않도록 막아둔 시간입니다.')
     const session=sessionKey(activeField)
     const start=new Date(`${pendingSlot}:00+09:00`),end=new Date(start.getTime()+(activeField.duration||60)*60_000)
     const conflict=assignments.find(a=>{if(a.status==='cancelled')return false;if(a.response_id===selected.id&&a.session_key===session)return false;const s=new Date(a.starts_at).getTime(),e=new Date(a.ends_at).getTime();return start.getTime()<e&&end.getTime()>s})
     if(conflict)return alert(`${participantNameById(conflict.response_id)} 참가자의 ${conflict.session_label} 일정과 겹칩니다.`)
     if(maxPerDay>0){const date=pendingSlot.split('T')[0];const sameDay=assignments.filter(a=>a.response_id===selected.id&&a.status!=='cancelled'&&a.session_key!==session&&kstSlot(a.starts_at).startsWith(date)).length;if(sameDay>=maxPerDay)return alert(`이 참가자는 하루에 최대 ${maxPerDay}개 세션만 배정할 수 있습니다.`)}
+    const schedulingSource=pendingManual?'admin_agreed':'participant_selection'
     setBusy(true)
-    const{error}=await supabase.from('assignments').upsert({study_id:study.id,response_id:selected.id,session_key:session,session_label:activeField.sessionLabel||activeField.label,starts_at:start.toISOString(),ends_at:end.toISOString(),status:'confirmed'},{onConflict:'response_id,session_key'})
+    const{error}=await supabase.from('assignments').upsert({
+      study_id:study.id,
+      response_id:selected.id,
+      session_key:session,
+      session_label:activeField.sessionLabel||activeField.label,
+      starts_at:start.toISOString(),
+      ends_at:end.toISOString(),
+      status:'confirmed',
+      scheduling_source:schedulingSource,
+      agreement_confirmed_at:pendingManual?new Date().toISOString():null,
+    },{onConflict:'response_id,session_key'})
     setBusy(false)
     if(error)return alert(error.message)
     setPendingSlot(null)
+    setPendingManual(false)
+    setDirectMode(false)
     const index=fields.findIndex(field=>field.id===activeField.id)
     const next=fields.slice(index+1).find(field=>!assignmentFor(selected,field))
     await load()
@@ -127,15 +173,16 @@ export default function ScheduleUnified({study}:{study:Study}){
       <div className="ss-main">
         <AdminSurface className="ss-sessions">
           <AdminPanelHeader title={selected?`${participantName(selected)}의 세션`:'세션'} description="모든 세션을 한 번에 보고, 지금 정할 세션 하나만 선택합니다."/>
-          <div className="ss-session-list">{fields.map((field,index)=>{const a=selected?assignmentFor(selected,field):null;const completed=a?.status==='completed';return<button type="button" key={field.id} className={`ss-session ${activeField?.id===field.id?'active':''}`} onClick={()=>setActiveSessionKey(sessionKey(field))}><span className="ss-session-index">{index+1}</span><span className="ss-session-copy"><strong>{field.sessionLabel||field.label}</strong><small>{field.duration||60}분{a?` · ${fmtDateTime(a.starts_at)}`:''}</small></span><StatusBadge status={completed?'completed':a?'confirmed':'unassigned'} label={completed?'완료':a?'확정':'미배정'}/></button>})}</div>
+          <div className="ss-session-list">{fields.map((field,index)=>{const a=selected?assignmentFor(selected,field):null;const completed=a?.status==='completed';return<button type="button" key={field.id} className={`ss-session ${activeField?.id===field.id?'active':''}`} onClick={()=>setActiveSessionKey(sessionKey(field))}><span className="ss-session-index">{index+1}</span><span className="ss-session-copy"><strong>{field.sessionLabel||field.label}</strong><small>{field.duration||60}분{a?` · ${fmtDateTime(a.starts_at)}`:''}{a?.scheduling_source==='admin_agreed'?' · 직접 협의':''}</small></span><StatusBadge status={completed?'completed':a?'confirmed':'unassigned'} label={completed?'완료':a?'확정':'미배정'}/></button>})}</div>
         </AdminSurface>
 
         {selected&&activeField&&<AdminSurface className="ss-current">
-          <div className="ss-current-copy"><small>{participantName(selected)} · {activeField.sessionLabel||activeField.label}</small>{currentAssignment?<><strong>{fmtDateTime(currentAssignment.starts_at)}</strong><span>{currentAssignment.status==='completed'?'완료된 일정입니다.':'현재 확정된 일정입니다. 다른 시간을 선택한 뒤 확정하면 변경됩니다.'}</span></>:<><strong>아직 정해진 일정이 없습니다.</strong><span>{missingPrior?`${missingPrior.sessionLabel||missingPrior.label}을 먼저 확정해주세요.`:'아래에서 참가자가 선택한 시간 하나를 고르세요.'}</span></>}</div>{currentAssignment?.status==='confirmed'&&<div className="ss-current-actions"><button className="btn ghost" disabled={busy} onClick={()=>removeAssignment(currentAssignment)}>일정 삭제</button></div>}
+          <div className="ss-current-copy"><small>{participantName(selected)} · {activeField.sessionLabel||activeField.label}</small>{currentAssignment?<><strong>{fmtDateTime(currentAssignment.starts_at)}</strong><span>{currentAssignment.status==='completed'?'완료된 일정입니다.':currentAssignment.scheduling_source==='admin_agreed'?'참가자와 직접 협의해 확정한 시간입니다.':'현재 확정된 일정입니다.'}</span></>:<><strong>아직 정해진 일정이 없습니다.</strong><span>{missingPrior?`${missingPrior.sessionLabel||missingPrior.label}을 먼저 확정해주세요.`:'참가자가 제출한 시간에서 선택하거나, 별도 협의한 시간을 직접 지정할 수 있습니다.'}</span></>}</div>{currentAssignment?.status==='confirmed'&&<div className="ss-current-actions"><button className="btn ghost" disabled={busy} onClick={()=>removeAssignment(currentAssignment)}>일정 삭제</button></div>}
         </AdminSurface>}
 
         {selected&&activeField&&<AdminSurface className="ss-grid-panel">
-          <div className="ss-grid-head"><div><h3>{activeField.sessionLabel||activeField.label} 시간표</h3><p>큰 글씨는 현재 참가자의 선택입니다. 같은 시간을 다른 참가자도 골랐을 때만 아래에 이름과 순위를 표시합니다.</p></div><div className="ss-legend"><span><i className="available"/>선택 가능</span><span><i className="preferred"/>1·2순위</span><span><i className="others"/>다른 참가자 선택</span><span><i className="chosen"/>선택됨</span><span><i className="current"/>확정</span><span><i className="occupied"/>예약됨</span></div></div>
+          <div className="ss-grid-head"><div><h3>{activeField.sessionLabel||activeField.label} 시간표</h3><p>현재 참가자의 선택과, 같은 시간을 고른 다른 참가자만 표시합니다. 아무 정보가 없는 칸은 비워둡니다.</p></div><div className="ss-grid-tools"><div className="ss-legend"><span><i className="available"/>선택 가능</span><span><i className="preferred"/>1·2순위</span><span><i className="others"/>다른 참가자 선택</span><span><i className="chosen"/>선택됨</span><span><i className="current"/>확정</span><span><i className="occupied"/>예약됨</span></div><button type="button" className={`btn small ${directMode?'':'ghost'}`} disabled={!!missingPrior||busy} onClick={()=>{setDirectMode(value=>!value);setPendingSlot(null);setPendingManual(false)}}>{directMode?'직접 협의 모드 종료':'직접 협의한 시간 지정'}</button></div></div>
+          {directMode&&<div className="ss-direct-note"><strong>직접 협의 모드</strong><span>참가자에게 별도로 연락해 동의를 받은 경우에만 빈 시간을 선택하세요. 관리자 차단 시간과 이미 예약된 시간은 선택할 수 없습니다.</span></div>}
           {missingPrior&&<div className="ss-blocked-note">먼저 <b>{missingPrior.sessionLabel||missingPrior.label}</b> 일정을 확정해야 이 세션을 정할 수 있습니다.</div>}
           <div className="ss-grid-scroll"><div className="ss-grid" style={{gridTemplateColumns:`78px repeat(${Math.max(dates.length,1)}, minmax(170px,1fr))`}}><div className="ss-corner">시간</div>{dates.map(day=><div className="ss-date" key={day}>{fmtDay(day)}</div>)}{times.flatMap(time=>[<div className="ss-time" key={`time-${time}`}>{time}</div>,...dates.map(day=>{
             const slot=`${day}T${time}`
@@ -146,15 +193,17 @@ export default function ScheduleUnified({study}:{study:Study}){
             const own=!!covering&&covering.response_id===selected.id&&covering.session_key===sessionKey(activeField)
             const start=covering?startsHere(covering,slot,activeField):false
             const chosen=pendingSlot===slot
-            const state=covering?own?'current':'occupied':chosen?'chosen':available?rank?'preferred':'available':others.length?'others':'empty'
-            const canChoose=!missingPrior&&!covering&&available&&!busy
+            const allowedByField=fieldAllowsSlot(activeField,slot)
+            const manualOption=directMode&&!available&&!covering&&allowedByField&&!missingPrior
+            const state=covering?own?'current':'occupied':chosen?'chosen':available?rank?'preferred':'available':others.length?'others':manualOption?'manual-option':'empty'
+            const canChoose=!missingPrior&&!covering&&allowedByField&&(available||directMode)&&!busy
             return<button type="button" key={slot} className={`ss-cell ${state}`} disabled={!canChoose} onClick={()=>chooseSlot(slot)}>
-              {covering?own?(start?<><strong>{covering.status==='completed'?'완료':'확정됨'}</strong></>:null):(start?<><strong>예약됨</strong><small>{participantNameById(covering.response_id)}</small></>:null):chosen?<><strong>선택됨</strong>{rank>0&&<small>{rank}순위</small>}</>:available?<><strong>{rank?`${rank}순위`:'선택 가능'}</strong>{others.length>0&&<><small>다른 참가자 {others.length}명 선택</small><small className="ss-cell-others">{otherSelectionDetail(others)}</small></>}</>:others.length>0?<><strong>다른 참가자 {others.length}명 선택</strong><small className="ss-cell-others">{otherSelectionDetail(others)}</small></>:null}
+              {covering?own?(start?<><strong>{covering.status==='completed'?'완료':'확정됨'}</strong>{covering.scheduling_source==='admin_agreed'&&<small>직접 협의</small>}</>:null):(start?<><strong>예약됨</strong><small>{participantNameById(covering.response_id)}</small></>:null):chosen?<><strong>{pendingManual?'직접 협의':'선택됨'}</strong>{!pendingManual&&rank>0&&<small>{rank}순위</small>}</>:available?<><strong>{rank?`${rank}순위`:'선택 가능'}</strong>{others.length>0&&<><small>다른 참가자 {others.length}명 선택</small><small className="ss-cell-others">{otherSelectionDetail(others)}</small></>}</>:others.length>0?<><strong>다른 참가자 {others.length}명 선택</strong><small className="ss-cell-others">{otherSelectionDetail(others)}</small></>:null}
             </button>
           })])}</div></div>
         </AdminSurface>}
 
-        {selected&&activeField&&pendingSlot&&<div className="ss-confirm-bar"><div><small>아직 저장되지 않은 선택</small><strong>{participantName(selected)} · {activeField.sessionLabel||activeField.label}</strong><span>{fmtDateTime(new Date(`${pendingSlot}:00+09:00`).toISOString())} · {activeField.duration||60}분</span></div><div className="ss-confirm-actions"><button className="btn secondary" onClick={()=>setPendingSlot(null)}>선택 취소</button><button className="btn" disabled={busy} onClick={confirmPending}>{busy?'저장 중…':currentAssignment?'이 시간으로 변경':'이 시간으로 확정'}</button></div></div>}
+        {selected&&activeField&&pendingSlot&&<div className={`ss-confirm-bar ${pendingManual?'manual':''}`}><div><small>{pendingManual?'참가자와 별도 협의한 시간':'아직 저장되지 않은 선택'}</small><strong>{participantName(selected)} · {activeField.sessionLabel||activeField.label}</strong><span>{fmtDateTime(new Date(`${pendingSlot}:00+09:00`).toISOString())} · {activeField.duration||60}분</span></div><div className="ss-confirm-actions"><button className="btn secondary" onClick={()=>{setPendingSlot(null);setPendingManual(false)}}>선택 취소</button><button className="btn" disabled={busy} onClick={confirmPending}>{busy?'저장 중…':pendingManual?'직접 협의 시간으로 확정':currentAssignment?'이 시간으로 변경':'이 시간으로 확정'}</button></div></div>}
       </div>
     </AdminSplitView>
   </div>
