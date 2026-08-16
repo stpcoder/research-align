@@ -4,6 +4,7 @@ import './workspace.css'
 import './availability-editor.css'
 import './admin-unified.css'
 import './form-controls.css'
+import './schedule-planner.css'
 
 export const metadata: Metadata = { title: 'StudyForm', description: 'Human-subject study scheduling and participant operations' }
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
