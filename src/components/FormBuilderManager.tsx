@@ -12,6 +12,7 @@ const addGroups=[
   {title:'일정',items:[['availability','시간 선택']] as [FormField['type'],string][]},
 ]
 
+function normalizeSlug(value:string){return value.trim().replace(/[^a-zA-Z0-9-_]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'')}
 function freshAvailability():FormField{return{id:newId(),type:'availability',label:'참여 가능한 시간을 선택해주세요',required:false,sessionKey:`session-${newId().slice(0,5)}`,sessionLabel:'본 실험',duration:60,stepMinutes:30,min:1,rankTop:0,dates:[],hours:'10:00-18:00',blockedSlots:[]}}
 function timeText(minutes:number){return`${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`}
 function toMinutes(value:string){const[h,m]=value.split(':').map(Number);return h*60+m}
@@ -58,19 +59,47 @@ export default function FormBuilderManager({study,refresh}:{study:Study,refresh:
   const[selectedId,setSelectedId]=useState(study.form_config?.fields?.[0]?.id||'')
   const[showAdd,setShowAdd]=useState(false)
   const[saving,setSaving]=useState(false)
+  const[origin,setOrigin]=useState('')
+  const[slugStatus,setSlugStatus]=useState<'idle'|'checking'|'available'|'taken'>('idle')
+  const normalizedSlug=normalizeSlug(slug)
   const selectedIndex=Math.max(0,fields.findIndex(f=>f.id===selectedId))
   const selected=fields[selectedIndex]||null
+
+  useEffect(()=>{setOrigin(window.location.origin)},[])
+  useEffect(()=>{
+    if(!normalizedSlug){setSlugStatus('idle');return}
+    if(normalizedSlug===study.slug){setSlugStatus('available');return}
+    setSlugStatus('checking')
+    const timer=window.setTimeout(async()=>{
+      const{data,error}=await supabase.from('studies').select('id').eq('slug',normalizedSlug).neq('id',study.id).maybeSingle()
+      if(error){setSlugStatus('idle');return}
+      setSlugStatus(data?'taken':'available')
+    },350)
+    return()=>window.clearTimeout(timer)
+  },[normalizedSlug,study.id,study.slug])
 
   function patch(patchValue:Partial<FormField>){if(!selected)return;setFields(v=>v.map(f=>f.id===selected.id?{...f,...patchValue}:f))}
   function addField(type:FormField['type']){const field:FormField=type==='availability'?freshAvailability():{id:newId(),type,label:type==='text'?'안내 문구':'새 문항',required:false,...(['radio','checkbox'].includes(type)?{options:['선택지 1','선택지 2']}: {})};setFields(v=>[...v,field]);setSelectedId(field.id);setShowAdd(false)}
   function move(delta:number){if(!selected)return;const from=fields.findIndex(f=>f.id===selected.id);const to=from+delta;if(to<0||to>=fields.length)return;setFields(v=>{const n=[...v];[n[from],n[to]]=[n[to],n[from]];return n})}
   function remove(){if(!selected||!confirm('이 문항을 삭제할까요?'))return;const index=fields.findIndex(f=>f.id===selected.id);const next=fields.filter(f=>f.id!==selected.id);setFields(next);setSelectedId(next[Math.min(index,next.length-1)]?.id||'')}
-  async function save(){setSaving(true);const{error}=await supabase.from('studies').update({title,slug:slug.replace(/[^a-zA-Z0-9-_]/g,'-'),description,form_config:{fields}}).eq('id',study.id);setSaving(false);if(error)alert(error.message);else await refresh()}
+  async function save(){
+    if(!title.trim())return alert('실험 이름을 입력해주세요.')
+    if(!normalizedSlug)return alert('신청 링크를 입력해주세요.')
+    if(slugStatus==='taken')return alert('이미 사용 중인 신청 링크입니다. 다른 주소를 입력해주세요.')
+    setSaving(true)
+    const{error}=await supabase.from('studies').update({title:title.trim(),slug:normalizedSlug,description,form_config:{fields}}).eq('id',study.id)
+    setSaving(false)
+    if(error){if(/duplicate|unique/i.test(error.message))setSlugStatus('taken');alert(error.message)}else{setSlug(normalizedSlug);await refresh()}
+  }
 
   return <div className="formv2-shell">
-    <header className="formv2-head"><div><span className="admin-kicker">FORM</span><h2>신청서 구성</h2><p className="muted">왼쪽에서 문항을 고르고 오른쪽에서 한 문항씩 편집합니다.</p></div><button className="btn" onClick={save}>{saving?'저장 중…':'변경사항 저장'}</button></header>
+    <header className="formv2-head"><div><span className="admin-kicker">FORM</span><h2>신청서 구성</h2><p className="muted">왼쪽에서 문항을 고르고 오른쪽에서 한 문항씩 편집합니다.</p></div><button className="btn" onClick={save} disabled={saving||slugStatus==='taken'}>{saving?'저장 중…':'변경사항 저장'}</button></header>
 
-    <section className="formv2-basics card"><div className="formv2-section-title"><div><span>기본 정보</span><h3>참가자에게 보이는 신청 페이지</h3></div></div><div className="formv2-basic-fields"><label className="formv2-major"><span>실험 이름</span><input value={title} onChange={e=>setTitle(e.target.value)}/></label><label><span>신청 링크</span><div className="formv2-slug"><span>/s/</span><input value={slug} onChange={e=>setSlug(e.target.value)}/></div></label><label><span>소개</span><textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="참가자에게 보여줄 간단한 실험 안내를 적어주세요."/></label></div></section>
+    <section className="formv2-basics card"><div className="formv2-section-title"><div><span>기본 정보</span><h3>참가자에게 보이는 신청 페이지</h3></div></div><div className="formv2-basic-fields">
+      <label className="formv2-major"><span>실험 이름</span><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="예: AI 학습 실험"/></label>
+      <label><span>신청 링크</span><div className="formv2-slug"><span>/s/</span><input value={slug} onChange={e=>setSlug(e.target.value)} onBlur={()=>setSlug(normalizedSlug)} placeholder="my-study"/></div><div className="formv2-link-preview"><code>{origin?`${origin}/s/${normalizedSlug||'...'}`:`/s/${normalizedSlug||'...'}`}</code><span className={`slug-status ${slugStatus}`}>{slugStatus==='checking'?'확인 중…':slugStatus==='available'?'사용 가능':slugStatus==='taken'?'이미 사용 중':'영문·숫자·-·_ 사용'}</span></div></label>
+      <label><span>소개</span><textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="참가자에게 보여줄 간단한 실험 안내를 적어주세요."/></label>
+    </div></section>
 
     <div className="formv2-workspace">
       <aside className="formv2-nav card">
