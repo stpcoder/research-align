@@ -4,17 +4,14 @@ const file = 'src/app/page.tsx'
 let text = fs.readFileSync(file, 'utf8')
 
 const typeImport = "import type { FormField, ResponseRow, Study } from '@/lib/types'"
-if (!text.includes("import ResponseManager from '@/components/ResponseManager'")) {
-  text = text.replace(typeImport, `${typeImport}\nimport ResponseManager from '@/components/ResponseManager'`)
-}
-if (!text.includes("import ScheduleManager from '@/components/ScheduleManager'")) {
-  text = text.replace("import ResponseManager from '@/components/ResponseManager'", "import ResponseManager from '@/components/ResponseManager'\nimport ScheduleManager from '@/components/ScheduleManager'")
-}
-if (!text.includes("import ContactManager from '@/components/ContactManager'")) {
-  text = text.replace("import ScheduleManager from '@/components/ScheduleManager'", "import ScheduleManager from '@/components/ScheduleManager'\nimport ContactManager from '@/components/ContactManager'")
-}
-if (!text.includes("import FormBuilderManager from '@/components/FormBuilderManager'")) {
-  text = text.replace("import ContactManager from '@/components/ContactManager'", "import ContactManager from '@/components/ContactManager'\nimport FormBuilderManager from '@/components/FormBuilderManager'")
+const imports = [
+  "import FormBuilderUnified from '@/components/FormBuilderUnified'",
+  "import ResponseManagerUnified from '@/components/ResponseManagerUnified'",
+  "import ScheduleUnified from '@/components/ScheduleUnified'",
+  "import ContactManager from '@/components/ContactManager'",
+]
+for (const statement of imports) {
+  if (!text.includes(statement)) text = text.replace(typeImport, `${typeImport}\n${statement}`)
 }
 
 function replaceBetween(source, startMarker, endMarker, replacement) {
@@ -25,9 +22,9 @@ function replaceBetween(source, startMarker, endMarker, replacement) {
   return source.slice(0, start) + replacement + source.slice(end)
 }
 
-text = replaceBetween(text,'function FormBuilder(','function Responses(',`function FormBuilder({study,refresh}:{study:Study,refresh:()=>Promise<void>}){return <FormBuilderManager study={study} refresh={refresh}/>}\n`)
-text = replaceBetween(text,'function Responses(','function Schedule(',`function Responses({study}:{study:Study}){return <ResponseManager study={study}/>}\n`)
-text = replaceBetween(text,'function Schedule(','function ContactHub(',`function Schedule({study}:{study:Study}){return <ScheduleManager study={study}/>}\n`)
+text = replaceBetween(text,'function FormBuilder(','function Responses(',`function FormBuilder({study,refresh}:{study:Study,refresh:()=>Promise<void>}){return <FormBuilderUnified study={study} refresh={refresh}/>}\n`)
+text = replaceBetween(text,'function Responses(','function Schedule(',`function Responses({study}:{study:Study}){return <ResponseManagerUnified study={study}/>}\n`)
+text = replaceBetween(text,'function Schedule(','function ContactHub(',`function Schedule({study}:{study:Study}){return <ScheduleUnified study={study}/>}\n`)
 text = text.replaceAll('<ContactHub study={study}/>', '<ContactManager study={study}/>')
 
 const replacements = new Map([
@@ -41,12 +38,5 @@ const replacements = new Map([
   ["const tabs=[['form','Form'],['responses','Responses'],['schedule','Schedule'],['contact','Contact Hub']]", "const tabs=[['form','신청서'],['responses','신청자'],['schedule','일정'],['contact','연락']]"],
   ["study.status==='published'?'모집 중지':'Publish'", "study.status==='published'?'모집 중지':'모집 시작'"],
 ])
-
 for (const [from, to] of replacements) text = text.replaceAll(from, to)
 fs.writeFileSync(file, text)
-
-const cssFile='src/app/globals.css'
-let css=fs.readFileSync(cssFile,'utf8')
-const imports=["@import './workspace.css';\n","@import './availability-editor.css';\n","@import './form-builder.css';\n","@import './admin-system.css';\n"]
-for(const cssImport of [...imports].reverse()) if(!css.includes(cssImport.trim())) css=cssImport+css
-fs.writeFileSync(cssFile,css)
