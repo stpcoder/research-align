@@ -10,6 +10,9 @@ if (!text.includes("import ResponseManager from '@/components/ResponseManager'")
 if (!text.includes("import ScheduleManager from '@/components/ScheduleManager'")) {
   text = text.replace("import ResponseManager from '@/components/ResponseManager'", "import ResponseManager from '@/components/ResponseManager'\nimport ScheduleManager from '@/components/ScheduleManager'")
 }
+if (!text.includes("import ContactManager from '@/components/ContactManager'")) {
+  text = text.replace("import ScheduleManager from '@/components/ScheduleManager'", "import ScheduleManager from '@/components/ScheduleManager'\nimport ContactManager from '@/components/ContactManager'")
+}
 
 function replaceBetween(source, startMarker, endMarker, replacement) {
   const start = source.indexOf(startMarker)
@@ -31,6 +34,7 @@ text = replaceBetween(
   'function ContactHub(',
   `function Schedule({study}:{study:Study}){return <ScheduleManager study={study}/>}\n`,
 )
+text = text.replaceAll('<ContactHub study={study}/>', '<ContactManager study={study}/>')
 
 const replacements = new Map([
   ['Research operations, without the spreadsheet.', '실험 운영을 한 곳에서 관리하세요.'],
