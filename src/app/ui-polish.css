@@ -28,12 +28,13 @@
 .contact-identity>div>strong{
   grid-column:1;
   grid-row:1;
-  font-size:11px;
+  font-size:0;
   font-weight:700;
   line-height:1.35;
   color:#73736e;
   white-space:nowrap;
 }
+.contact-identity>div>strong::after{content:'연구용 이메일';font-size:11px}
 .contact-identity:has(.status-dot.connected)>div>strong{color:#467156}
 .contact-identity>div>span:first-of-type{
   grid-column:2;
@@ -65,6 +66,9 @@
   font-size:11.5px;
 }
 .contact-identity .btn:hover{background:var(--soft);border-color:transparent}
+.contact-identity:has(.status-dot.connected) .btn{font-size:0}
+.contact-identity:has(.status-dot.connected) .btn::after{content:'메일 확인';font-size:11.5px}
+.contact-identity:has(.status-dot.connected) .btn:disabled::after{content:'확인 중…'}
 
 @media(max-width:860px){
   .contact-header{align-items:flex-start}
