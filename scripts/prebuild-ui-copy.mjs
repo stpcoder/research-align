@@ -39,12 +39,15 @@ const swEnd=swStart>=0?text.indexOf('\nfunction FormBuilder(',swStart):-1
 if(swStart>=0&&swEnd>=0){
   let workspace=text.slice(swStart,swEnd)
   const anchor=' async function togglePublish()'
-  if(workspace.includes(anchor)&&!workspace.includes('function confirmDirtyLeave')){
-    workspace=workspace.replace(anchor,` function confirmDirtyLeave(){return !(window as any).__studyFormDirty||confirm('저장되지 않은 변경사항이 있습니다. 저장하지 않고 이동할까요?')}\n function leaveStudy(){if(confirmDirtyLeave())setStudy(null)}\n function switchTab(next:string){if(next===tab||confirmDirtyLeave())setTab(next)}\n${anchor}`)
-  }
+  if(workspace.includes(anchor)&&!workspace.includes('function confirmDirtyLeave'))workspace=workspace.replace(anchor,` function confirmDirtyLeave(){return !(window as any).__studyFormDirty||confirm('저장되지 않은 변경사항이 있습니다. 저장하지 않고 이동할까요?')}\n function leaveStudy(){if(confirmDirtyLeave())setStudy(null)}\n function switchTab(next:string){if(next===tab||confirmDirtyLeave())setTab(next)}\n${anchor}`)
   workspace=workspace.replaceAll('onClick={()=>setStudy(null)}','onClick={leaveStudy}')
   workspace=workspace.replaceAll('onClick={()=>setTab(k)}','onClick={()=>switchTab(k)}')
   text=text.slice(0,swStart)+workspace+text.slice(swEnd)
 }
-
 fs.writeFileSync(file,text)
+
+// Keep the date-window header type-safe before Next.js type checking.
+const scheduleFile='src/components/ScheduleUnified.tsx'
+let schedule=fs.readFileSync(scheduleFile,'utf8')
+schedule=schedule.replaceAll('visibleDates.at(-1)&&fmtDay(visibleDates.at(-1))','visibleDates.length>0&&fmtDay(visibleDates[visibleDates.length-1])')
+fs.writeFileSync(scheduleFile,schedule)
