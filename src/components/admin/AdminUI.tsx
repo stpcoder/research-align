@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import type { DragEvent, ReactNode } from 'react'
 
 export function AdminPageHeader({
   kicker,
@@ -88,16 +88,40 @@ export function AdminListItem({
   subtitle,
   meta,
   status,
+  leading,
   onClick,
+  className = '',
+  draggable = false,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: {
   active?: boolean
   title: string
   subtitle?: string | null
   meta?: string | null
   status?: ReactNode
+  leading?: ReactNode
   onClick?: () => void
+  className?: string
+  draggable?: boolean
+  onDragStart?: (event: DragEvent<HTMLButtonElement>) => void
+  onDragOver?: (event: DragEvent<HTMLButtonElement>) => void
+  onDrop?: (event: DragEvent<HTMLButtonElement>) => void
+  onDragEnd?: (event: DragEvent<HTMLButtonElement>) => void
 }) {
-  return <button type="button" className={`aui-list-item ${active ? 'active' : ''}`} onClick={onClick}>
+  return <button
+    type="button"
+    className={`aui-list-item ${active ? 'active' : ''} ${draggable ? 'draggable' : ''} ${className}`}
+    onClick={onClick}
+    draggable={draggable}
+    onDragStart={onDragStart}
+    onDragOver={onDragOver}
+    onDrop={onDrop}
+    onDragEnd={onDragEnd}
+  >
+    {leading && <span className="aui-list-leading">{leading}</span>}
     <span className="aui-list-copy">
       <strong>{title}</strong>
       {subtitle && <span>{subtitle}</span>}
