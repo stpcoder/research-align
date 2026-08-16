@@ -25,24 +25,9 @@ function replaceBetween(source, startMarker, endMarker, replacement) {
   return source.slice(0, start) + replacement + source.slice(end)
 }
 
-text = replaceBetween(
-  text,
-  'function FormBuilder(',
-  'function Responses(',
-  `function FormBuilder({study,refresh}:{study:Study,refresh:()=>Promise<void>}){return <FormBuilderManager study={study} refresh={refresh}/>}\n`,
-)
-text = replaceBetween(
-  text,
-  'function Responses(',
-  'function Schedule(',
-  `function Responses({study}:{study:Study}){return <ResponseManager study={study}/>}\n`,
-)
-text = replaceBetween(
-  text,
-  'function Schedule(',
-  'function ContactHub(',
-  `function Schedule({study}:{study:Study}){return <ScheduleManager study={study}/>}\n`,
-)
+text = replaceBetween(text,'function FormBuilder(','function Responses(',`function FormBuilder({study,refresh}:{study:Study,refresh:()=>Promise<void>}){return <FormBuilderManager study={study} refresh={refresh}/>}\n`)
+text = replaceBetween(text,'function Responses(','function Schedule(',`function Responses({study}:{study:Study}){return <ResponseManager study={study}/>}\n`)
+text = replaceBetween(text,'function Schedule(','function ContactHub(',`function Schedule({study}:{study:Study}){return <ScheduleManager study={study}/>}\n`)
 text = text.replaceAll('<ContactHub study={study}/>', '<ContactManager study={study}/>')
 
 const replacements = new Map([
@@ -62,6 +47,6 @@ fs.writeFileSync(file, text)
 
 const cssFile='src/app/globals.css'
 let css=fs.readFileSync(cssFile,'utf8')
-const imports=["@import './workspace.css';\n","@import './availability-editor.css';\n","@import './form-builder.css';\n","@import './admin-ux.css';\n"]
+const imports=["@import './workspace.css';\n","@import './availability-editor.css';\n","@import './form-builder.css';\n","@import './admin-system.css';\n"]
 for(const cssImport of [...imports].reverse()) if(!css.includes(cssImport.trim())) css=cssImport+css
 fs.writeFileSync(cssFile,css)
