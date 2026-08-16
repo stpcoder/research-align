@@ -67,5 +67,10 @@ const replacements = new Map([
 ])
 
 for (const [from, to] of replacements) text = text.replaceAll(from, to)
-
 fs.writeFileSync(file, text)
+
+const cssFile='src/app/globals.css'
+let css=fs.readFileSync(cssFile,'utf8')
+const workspaceImport="@import './workspace.css';\n"
+if (!css.startsWith(workspaceImport)) css=workspaceImport+css
+fs.writeFileSync(cssFile,css)
