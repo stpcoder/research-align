@@ -48,10 +48,11 @@ export default function ContactManager({study}:{study:Study}){
   }
   function threadForResponse(row:ResponseRow|null){
     if(!row)return null
-    return threads.find(t=>t.channel==='email'&&(t.response_id===row.id||(!!row.contact_email&&t.participant_address.toLowerCase()===row.contact_email.toLowerCase())))||null
+    return threads.find(t=>t.status!=='closed'&&t.channel==='email'&&(t.response_id===row.id||(!!row.contact_email&&t.participant_address.toLowerCase()===row.contact_email.toLowerCase())))||null
   }
 
-  const inquiryThreads=useMemo(()=>threads.filter(t=>t.source==='public_inquiry'&&t.status!=='closed').sort((a,b)=>{
+  // Once a public inquiry is matched to a submitted response, it belongs under that participant.
+  const inquiryThreads=useMemo(()=>threads.filter(t=>t.source==='public_inquiry'&&!t.response_id&&t.status!=='closed').sort((a,b)=>{
     if(a.status!==b.status)return a.status==='pending'?-1:1
     return new Date(b.last_message_at||0).getTime()-new Date(a.last_message_at||0).getTime()
   }),[threads])
@@ -87,9 +88,11 @@ export default function ContactManager({study}:{study:Study}){
     setSelection(current=>{
       const valid=current.startsWith('thread:')?nextThreads.some(x=>x.id===current.slice(7)&&x.status!=='closed'):current.startsWith('response:')?nextResponses.some(x=>x.id===current.slice(9)):false
       if(valid)return current
-      const pending=nextThreads.find(x=>x.source==='public_inquiry'&&x.status==='pending')
+      const pending=nextThreads.find(x=>x.source==='public_inquiry'&&!x.response_id&&x.status==='pending')
       if(pending)return`thread:${pending.id}`
-      const inquiry=nextThreads.find(x=>x.source==='public_inquiry'&&x.status!=='closed')
+      const participantPending=nextResponses.find(row=>nextThreads.some(t=>t.response_id===row.id&&t.status==='pending'))
+      if(participantPending)return`response:${participantPending.id}`
+      const inquiry=nextThreads.find(x=>x.source==='public_inquiry'&&!x.response_id&&x.status!=='closed')
       if(inquiry)return`thread:${inquiry.id}`
       return nextResponses[0]?`response:${nextResponses[0].id}`:''
     })
@@ -178,7 +181,7 @@ export default function ContactManager({study}:{study:Study}){
               <span className="muted small">{thread.participant_address}</span>
               <span className="contact-person-meta"><span>{thread.status==='pending'?'답변 필요':'응대 중'}</span>{thread.last_message_at&&<span>{fmt(thread.last_message_at)}</span>}</span>
             </button>)}
-            {!inquiryThreads.length&&<div className="contact-list-empty">대기 중인 문의가 없습니다.</div>}
+            {!inquiryThreads.length&&<div className="contact-list-empty">매칭되지 않은 대기 문의가 없습니다.</div>}
           </div>
         </div>
 
@@ -186,7 +189,7 @@ export default function ContactManager({study}:{study:Study}){
         <div className="contact-list-section">
           <div className="section-head"><h3>참가자</h3><span className="muted small">{responses.length}명</span></div>
           <div className="people contact-people">
-            {responses.map(row=>{const thread=threadForResponse(row);return<button type="button" key={row.id} className={`person contact-person ${selection===`response:${row.id}`?'active':''}`} onClick={()=>setSelection(`response:${row.id}`)}><strong>{participantName(row)}</strong><span className="muted small">{row.contact_email||'이메일 없음'}</span><span className="contact-person-meta">{preference(row)&&<span>{preference(row)}</span>}{thread?.last_message_at&&<span>{fmt(thread.last_message_at)}</span>}</span></button>})}
+            {responses.map(row=>{const thread=threadForResponse(row);return<button type="button" key={row.id} className={`person contact-person ${selection===`response:${row.id}`?'active':''}`} onClick={()=>setSelection(`response:${row.id}`)}><span className="contact-person-title"><strong>{participantName(row)}</strong>{thread?.status==='pending'&&<span className="pill contact-pending-pill">답변 필요</span>}</span><span className="muted small">{thread?.participant_address||row.contact_email||'이메일 없음'}</span><span className="contact-person-meta">{thread?.status==='pending'?<span>새 문의</span>:preference(row)&&<span>{preference(row)}</span>}{thread?.last_message_at&&<span>{fmt(thread.last_message_at)}</span>}</span></button>})}
             {!responses.length&&<div className="empty compact">아직 신청자가 없습니다.</div>}
           </div>
         </div>
@@ -194,7 +197,7 @@ export default function ContactManager({study}:{study:Study}){
 
       <section className="card conversation-panel">
         {!selectedResponse&&!selectedThread?<div className="empty">왼쪽에서 문의자 또는 참가자를 선택하세요.</div>:<>
-          <div className="conversation-head"><div><div className="contact-conversation-title"><h2>{selectedName}</h2>{selectedThread?.source==='public_inquiry'&&<span className={`pill ${selectedThread.status==='pending'?'contact-pending-pill':''}`}>{selectedThread.status==='pending'?'답변 대기':'응대 중'}</span>}</div><div className="response-meta">{selectedEmail&&<span>{selectedEmail}</span>}{selectedResponse?.contact_phone&&<span>{selectedResponse.contact_phone}</span>}{preference(selectedResponse)&&<span>안내 방법: {preference(selectedResponse)}</span>}{selectedThread?.source==='public_inquiry'&&<span>신청 전 문의</span>}</div></div>{selectedThread?.source==='public_inquiry'&&<button className="btn ghost small" onClick={closeInquiry}>처리 완료</button>}</div>
+          <div className="conversation-head"><div><div className="contact-conversation-title"><h2>{selectedName}</h2>{selectedThread?.status==='pending'?<span className="pill contact-pending-pill">답변 필요</span>:selectedThread?.source==='public_inquiry'?<span className="pill">응대 중</span>:null}</div><div className="response-meta">{selectedEmail&&<span>{selectedEmail}</span>}{selectedResponse?.contact_phone&&<span>{selectedResponse.contact_phone}</span>}{preference(selectedResponse)&&<span>안내 방법: {preference(selectedResponse)}</span>}{selectedThread?.source==='public_inquiry'&&<span>{selectedThread.response_id?'신청자와 연결된 문의':'신청 전 문의'}</span>}</div></div>{selectedThread?.source==='public_inquiry'&&<button className="btn ghost small" onClick={closeInquiry}>처리 완료</button>}</div>
 
           <div className="conversation-messages">
             {messages.map(message=><div key={message.id} className={`conversation-message ${message.direction}`}><div>{message.body}</div><span>{message.direction==='outbound'?'보냄':'받음'} · {fmt(message.sent_at)}</span></div>)}
