@@ -1,38 +1,39 @@
-# AGENTS.md — Research Align Development Rules
+# AGENTS.md — Research Align Development Contract
 
-This file is the durable operating contract for any AI agent or developer working on this repository.
+This repository is designed to be developed across many short AI/developer sessions. The repository, not chat history, is the durable memory.
 
-## 1. Start every development session here
+## 1. Mandatory session startup
 
-Before changing code, read these files in order:
+Before changing anything, read in this order:
 
-1. `AGENTS.md` — durable rules and workflow.
-2. `docs/HANDOFF.md` — the latest session state, unfinished work, and immediate next steps.
-3. `docs/PROJECT_STATE.md` — current architecture, production topology, data model, and implemented feature inventory.
-4. `docs/DEVELOPMENT_LOG.md` — chronological history when prior decisions or regressions matter.
-5. `docs/ADMIN_DESIGN_SYSTEM.md` — required when changing the researcher/admin UI.
-6. `deploy-control/README.md` — required when changing or diagnosing deployment infrastructure.
+1. `AGENTS.md` — durable rules.
+2. `docs/HANDOFF.md` — exact latest operational state and active work.
+3. `docs/PROJECT_STATE.md` — durable architecture and implemented feature inventory.
+4. `docs/SESSION_PROTOCOL.md` — exact start/work/commit/deploy/handoff procedure.
+5. `docs/DEVELOPMENT_LOG.md` — prior decisions/regressions when relevant.
+6. `docs/ADMIN_DESIGN_SYSTEM.md` — mandatory for researcher/admin UI work.
+7. `deploy-control/README.md` — mandatory for deployment/control-plane work.
 
-Do not infer the current state from an old conversation, README prose, or a remembered commit. Verify GitHub `main` and live Supabase/Vercel state before consequential changes.
+Then verify live state. Never assume an old handoff SHA is still current.
 
-## 2. Sources of truth
+## 2. Source-of-truth order
 
-Use this priority order when sources disagree:
+When sources disagree, use this order:
 
-1. Live Supabase production schema, migrations, functions, RLS, Edge Functions, and `deploy_control_state`.
-2. Current GitHub `main` source.
+1. Live Supabase production schema, migration history, functions, RLS, Edge Functions, and `deploy_control_state`.
+2. Current GitHub branch/commit being worked on; `main` is canonical production source.
 3. Current production deployment metadata.
-4. `docs/PROJECT_STATE.md` and `docs/HANDOFF.md`.
+4. `docs/HANDOFF.md` and `docs/PROJECT_STATE.md`.
 5. `README.md` and `SOURCE_MANIFEST.json`.
 
-`README.md` and `SOURCE_MANIFEST.json` contain legacy KeyID-era information and must not be treated as authoritative without verification.
+`README.md` and `SOURCE_MANIFEST.json` contain legacy KeyID-era material and are not authoritative unless verified.
 
-## 3. Current production identity
+## 3. Stable production identifiers
 
-These identifiers are operational references, not secrets:
+These are references, not secrets:
 
 - Repository: `stpcoder/research-align`
-- Default/source branch: `main`
+- Production source branch: `main`
 - Supabase project: `rgwqsqeikebwunbdnbex`
 - Supabase region: `ap-northeast-1`
 - Vercel project: `research-align`
@@ -40,11 +41,11 @@ These identifiers are operational references, not secrets:
 - Vercel team ID: `team_muySkNMTu5rLXyDOd5pTz1tw`
 - Canonical production URL: `https://research-align.vercel.app`
 
-The exact current Git commit and deployment ID are intentionally kept in `docs/HANDOFF.md`, because they change every session.
+Changing SHAs, deployment IDs, active branch, and in-progress work belong in `docs/HANDOFF.md`.
 
-## 4. Critical architecture rule: deployment is not normal GitHub-to-Vercel auto-deploy
+## 4. Deployment architecture — do not replace it casually
 
-The primary deployment path is:
+Primary production path:
 
 ```text
 GitHub main
@@ -57,22 +58,22 @@ GitHub main
   -> deploy_control_state
 ```
 
-GitHub Actions in `.github/workflows/vercel-control.yml` are a manual fallback only.
+`.github/workflows/vercel-control.yml` is a manual fallback only.
 
-The top-level Vercel connector may fail to list the project even while production is healthy. Never create a replacement Vercel project merely because a connector returns an empty project list. First inspect `public.deploy_control_state` in Supabase.
+The top-level Vercel connector may show no projects even while production is healthy. Never create a replacement project because of connector visibility. Query Supabase `public.deploy_control_state` first.
 
-After every production deployment, verify all of the following:
+After a production deployment verify:
 
 - `deploy_control_state.status = 'READY'`
-- `deploy_control_state.details.commitSha` equals the intended GitHub `main` SHA
-- `production_url` remains `https://research-align.vercel.app`
-- public participant routes still respond successfully
+- `deploy_control_state.details.commitSha` equals the intended runtime commit
+- `production_url = https://research-align.vercel.app`
+- the relevant public/admin production flow actually works
 
-## 5. Critical source-code rule: build-time rewrite exists
+## 5. Build-time source rewrite warning
 
-`package.json` runs `scripts/prebuild-ui-copy.mjs` before both `next dev` and `next build`.
+`package.json` runs `scripts/prebuild-ui-copy.mjs` before `next dev` and `next build`.
 
-That script rewrites parts of `src/app/page.tsx` at build time and swaps the legacy inline implementations for:
+The script rewrites parts of `src/app/page.tsx` and substitutes current implementations:
 
 - `ResearchHome`
 - `FormBuilderUnified`
@@ -80,33 +81,113 @@ That script rewrites parts of `src/app/page.tsx` at build time and swaps the leg
 - `ScheduleUnified`
 - `ContactManager`
 
-It also patches UI copy and unsaved-change navigation behavior.
+It also injects copy and unsaved-change navigation behavior.
 
 Therefore:
 
-- Do not judge production behavior by reading `src/app/page.tsx` alone.
-- Prefer editing the Unified components for current functionality.
-- Before changing `page.tsx`, inspect `scripts/prebuild-ui-copy.mjs` and determine whether the build will overwrite the change.
-- Long term, removing this rewrite layer is desirable, but do not casually remove it without replacing all behavior it currently injects.
+- Do not treat `src/app/page.tsx` alone as canonical runtime behavior.
+- Prefer the Unified components for current behavior.
+- Inspect `scripts/prebuild-ui-copy.mjs` before editing `page.tsx`.
+- Removing this rewrite is desirable technical debt, but only with full behavior parity and explicit testing.
 
-## 6. Database and scheduling invariants
+## 6. Commit discipline — mandatory
 
-Scheduling correctness is enforced in both UI and PostgreSQL. Do not weaken database-level invariants just to make the frontend pass.
+The purpose is to make every completed change recoverable from GitHub even if the conversation ends immediately afterward.
 
-Important current rules:
+### One logical change per commit
 
-- A researcher may own multiple studies.
-- Confirmed resource occupancy is owner-wide across all of that researcher's studies.
-- Assignment statuses are `confirmed`, `completed`, `no_show`, and `cancelled`.
-- Cancellation preserves the assignment row; it is not a delete.
-- `(response_id, session_key)` is unique.
-- Session duration and `bufferMinutes` participate in overlap checks.
-- `confirmed`, `completed`, and `no_show` assignments occupy time; `cancelled` does not.
-- Public participant busy intervals are owner-wide, not study-local.
-- Participant submission re-fetches busy intervals before insert to reduce stale-page races.
-- Session order and `maxSessionsPerDay` are enforced in the scheduling UI.
+A commit should answer one sentence: “this commit does X.”
 
-When changing scheduling behavior, inspect and update as necessary:
+Good examples:
+
+- `fix(schedule): preserve pending inquiry after auto notice`
+- `feat(form): add session preparation instructions`
+- `db(schedule): make overlap trigger buffer-aware`
+- `ops(mail): disable temporary quota probe`
+- `docs(handoff): record production state after schedule fix`
+
+Do not mix an unrelated UI cleanup, database hardening, and email change in one commit.
+
+### One logical change may span many files
+
+If one feature requires component + type + migration + Edge Function changes, those files should normally be one atomic commit. Do not fragment a single logical feature into arbitrary per-file commits merely because the API edits files one at a time. Use a local git commit or GitHub tree/commit APIs when necessary.
+
+### Commit completed checkpoints promptly
+
+Do not keep hours of already-working changes only in an ephemeral working tree. Once a logical checkpoint is implemented and verified enough to stand on its own, commit it before starting the next independent change.
+
+Do not commit broken/WIP code to `main` solely as a backup. For larger or risky work, use a work branch.
+
+### Branch rule
+
+Use direct `main` commits only for small, self-contained, verified changes.
+
+For multi-step features, refactors, risky migrations, or work likely to cross a conversation boundary:
+
+- create `work/YYYYMMDD-<short-topic>`
+- commit each verified logical checkpoint there
+- record `active_branch` and `last_verified_commit` in `docs/HANDOFF.md`
+- continue the same branch in the next session
+- merge/fast-forward to `main` only after the complete change passes required checks
+- production deployments use canonical `main` unless the deployment architecture is deliberately changed
+
+### Commit message convention
+
+Prefer:
+
+- `feat(scope): ...` — user-visible capability
+- `fix(scope): ...` — bug fix
+- `db(scope): ...` — database-only/invariant change
+- `ops(scope): ...` — deployment/provider/operations
+- `refactor(scope): ...` — behavior-preserving structural change
+- `test(scope): ...` — test coverage/probes without product behavior change
+- `docs(scope): ...` — documentation/handoff
+- `chore(scope): ...` — maintenance that fits none above
+
+### Final handoff is its own commit
+
+After runtime work is finished and verified, update `docs/HANDOFF.md` and `docs/DEVELOPMENT_LOG.md` in a final documentation commit such as:
+
+`docs(handoff): record <topic> completion`
+
+This intentionally may make GitHub `main` one docs-only commit ahead of the deployed runtime SHA. Record that fact explicitly.
+
+## 7. Database change discipline
+
+Scheduling and contact correctness live partly in PostgreSQL. Never make frontend-only changes that weaken production invariants.
+
+For a schema/function change:
+
+1. Write/commit the migration in GitHub with the code that depends on it, or use an explicit staged rollout.
+2. Apply it to the live Supabase project when production rollout is intended.
+3. Verify the live definition/constraint/RLS/function after application.
+4. Record the exact migration name in `docs/HANDOFF.md`.
+
+For breaking database changes, prefer expand/deploy/contract:
+
+1. backward-compatible expand migration
+2. deploy application using the new shape
+3. verify production
+4. contract/remove legacy shape only afterward
+
+Do not create an untracked live DDL change and leave GitHub migrations behind.
+
+## 8. Scheduling invariants
+
+Current rules:
+
+- one researcher may own many studies
+- occupied time is owner-wide across those studies
+- assignment statuses: `confirmed`, `completed`, `no_show`, `cancelled`
+- cancellation preserves the row
+- `(response_id, session_key)` is unique
+- duration and `bufferMinutes` participate in conflict checks
+- `confirmed`, `completed`, and `no_show` occupy time; `cancelled` does not
+- public busy intervals are owner-wide
+- participant submit re-fetches busy intervals
+- UI also enforces session order and `maxSessionsPerDay`
+
+When touching scheduling inspect as relevant:
 
 - `src/components/ScheduleUnified.tsx`
 - `src/components/ParticipantForm.tsx`
@@ -114,115 +195,129 @@ When changing scheduling behavior, inspect and update as necessary:
 - live `prevent_owner_schedule_overlap()`
 - live `get_public_busy_intervals()`
 
-A scheduling feature is not complete until the database-side behavior has been verified.
+A scheduling change is incomplete until DB-side behavior is verified.
 
-## 7. Contact and email architecture
+## 9. Contact/email invariants
 
-Supabase is the application source of truth for communication state:
+Supabase is the communication state source of truth:
 
 - `contact_threads`
 - `contact_messages`
 - `notifications`
 - `study_contact_channels`
 
-ClawMail is the current email transport/provider. Provider credentials live in the private Supabase schema and must never be exposed to the browser or committed to GitHub.
+ClawMail is the current transport. Provider credentials stay private/server-side.
 
-Current contact thread states:
+Thread states:
 
 - `pending` = researcher response required
 - `open` = in progress
 - `closed` = finished
 
-Automatic schedule emails must not incorrectly clear an existing participant inquiry from `pending`.
+Automatic schedule email must not clear an existing `pending` inquiry.
 
-Schedule notification kinds are:
+Notification kinds:
 
 - `schedule_confirmation`
 - `schedule_cancellation`
 
-Notification delivery failure must not roll back the underlying schedule state. Persist the schedule change, record notification failure, and expose retry/attention state to the researcher.
+Provider failure must not roll back schedule state. Persist schedule state, record notification failure, and expose retry/attention state.
 
-Do not introduce Gmail as an implicit dependency. The current production email path is ClawMail unless an explicit architecture decision changes it.
+Do not introduce Gmail as an implicit dependency.
 
-## 8. Public inquiry behavior
+## 10. Public inquiry matching
 
-The public study page includes both participant application and pre-application inquiry flows.
-
-Inquiry/applicant matching currently prefers:
+Matching order:
 
 1. unique exact email
-2. email + name when email is non-unique
+2. email + name if email is non-unique
 3. unique name
 
-Avoid unsafe fuzzy matching that could attach one person's inquiry to another participant.
+Do not introduce broad fuzzy matching that may attach one person's inquiry to another participant.
 
-## 9. Security rules
+## 11. Security rules
 
-- Never commit service-role keys, provider API tokens, deployment control keys, webhook tokens, private seeds, or other secrets.
-- Browser code may use only Supabase publishable/public configuration.
-- Preserve RLS on exposed application tables.
-- Keep private provider material in non-exposed/private storage.
-- Treat `SECURITY DEFINER` functions as privileged APIs and review grants explicitly.
-- Test/probe Edge Functions must be removed or returned to `verify_jwt=true` + HTTP 410 disabled stubs after use.
-- Do not expose deployment-control secret values in logs, docs, commits, or chat handoffs.
+- Never commit service-role keys, provider tokens, deploy-control keys, webhook tokens, private seeds, or secrets.
+- Browser code may use only publishable/public configuration.
+- Preserve RLS on exposed tables.
+- Keep provider material in private/non-exposed storage.
+- Treat `SECURITY DEFINER` functions as privileged APIs; review grants explicitly.
+- Temporary/probe Edge Functions must be removed or returned to `verify_jwt=true` + HTTP 410 stubs after use.
+- Never include secret values in logs, docs, commits, or handoffs.
 
-## 10. Development workflow
+## 12. Work execution protocol
 
-For each meaningful change:
+Follow `docs/SESSION_PROTOCOL.md`. At minimum for each meaningful work item:
 
-1. Read the current handoff and verify live baseline.
-2. Inspect the smallest relevant code/data surface before editing.
-3. Implement the change in GitHub source.
-4. If schema/function behavior changes, create and commit a migration and apply/verify it in the live Supabase project.
-5. Run relevant build/type/lint checks where available.
-6. Deploy using the established Supabase/Vercel control plane when production deployment is intended.
-7. Verify production behavior, not only build success.
-8. Update documentation before ending the session.
+1. verify baseline
+2. define scope and invariant impact
+3. implement smallest coherent change
+4. run relevant checks
+5. commit the verified logical change
+6. apply/verify DB or Edge Function changes as applicable
+7. deploy only when intended
+8. verify production behavior
+9. record exact state in handoff/log
 
-Avoid broad unrelated refactors while fixing an operational bug unless the refactor is necessary for correctness.
+Avoid unrelated refactors during operational fixes unless required for correctness.
 
-## 11. Required end-of-session protocol
+## 13. Required end-of-session protocol
 
-Before ending any development session, do all of the following:
+Before ending a development session:
 
-### Update `docs/HANDOFF.md`
-Replace it with the latest state. It must contain:
+### Replace `docs/HANDOFF.md`
 
-- timestamp in KST
+Use `docs/HANDOFF_TEMPLATE.md` and include:
+
+- KST timestamp
+- `active_branch`
+- work status: `clean`, `in_progress`, or `blocked`
 - current GitHub `main` HEAD
-- current production deployment ID/status/commit
-- exactly what changed this session
-- database migrations/functions changed
-- Edge Functions changed
-- tests/E2E checks actually performed and their result
-- unresolved bugs or risks
-- immediate next tasks, in priority order
-- any temporary infrastructure created and whether it was disabled/removed
+- active branch HEAD if different
+- last verified logical commit
+- deployed runtime commit
+- production deployment ID/status
+- exact commits created this session
+- files/areas changed
+- migrations/functions/Edge Functions changed
+- tests/E2E actually run and results
+- unresolved risks/bugs
+- immediate next action
+- temporary infrastructure status
+- explicit statement of any source/DB/deployment drift
 
 ### Append `docs/DEVELOPMENT_LOG.md`
-Add a short dated session entry. This file is append-only history; do not rewrite old entries merely to make the narrative cleaner.
 
-### Update `docs/PROJECT_STATE.md` when architecture changes
-Only change it when the durable product/architecture state changed. Do not use it as a minute-by-minute log.
+Add a factual dated entry. Never rewrite old entries simply for narrative cleanup.
 
-## 12. Recommended prompt for a new chat session
+### Update `docs/PROJECT_STATE.md` only for durable architecture/product-state changes
 
-Use a prompt like:
+Do not turn it into a session log.
 
-> Continue development of `stpcoder/research-align`. First read `AGENTS.md`, `docs/HANDOFF.md`, and `docs/PROJECT_STATE.md` from `main`. Treat them as the handoff, but verify the current GitHub HEAD and live Supabase `deploy_control_state` before making changes. Then continue from the `Next tasks` section in `docs/HANDOFF.md`. At the end, update the handoff and development log.
+### Commit the handoff
 
-If the new task is specifically UI work, add `docs/ADMIN_DESIGN_SYSTEM.md` to the required reading list.
+The final session documentation must itself be committed so the next conversation can retrieve it from GitHub.
 
-## 13. Current technical debt to remember
+## 14. Recovery after an interrupted session
 
-These are known cleanup/hardening areas, not necessarily the next feature to build:
+If a previous conversation ended unexpectedly:
 
-- remove the build-time `page.tsx` rewrite and make canonical source explicit
-- resolve/upgrade ClawMail production sending quota before real participant scale
+1. Read `docs/HANDOFF.md` but do not assume it captured the very last action.
+2. Inspect commits after the handoff's recorded `main_head` / `last_verified_commit`.
+3. If a work branch is recorded, inspect that branch before creating a new one.
+4. Query live Supabase migration history and `deploy_control_state`.
+5. Distinguish four states explicitly: source committed, DB applied, Edge Function deployed, Vercel runtime deployed.
+6. Continue from the newest verified checkpoint; do not redo already-committed work blindly.
+7. If an unverified commit exists, inspect/test it before building on it.
+
+## 15. Known technical debt
+
+- remove build-time `page.tsx` rewrite and make canonical source explicit
+- resolve ClawMail production sending quota before participant scale
 - add CI / branch protection for `main`
-- clean legacy KeyID / Google Calendar / probe artifacts and stale documentation
-- review Supabase advisor findings and add useful indexes
-- minimize unnecessary `SECURITY DEFINER` grants, including anonymous execution where not required
-- clean production demo/test data before a real pilot
+- clean legacy KeyID / Google Calendar / probe artifacts and stale docs
+- review Supabase advisor findings and useful indexes
+- minimize unnecessary `SECURITY DEFINER` grants
+- clean demo/test production data before real pilot
 
-Always prefer correctness and recoverability over hiding operational failures.
+Prefer recoverability and correctness over hiding operational failures.
