@@ -69,9 +69,8 @@ async function fetchCodeloadSnapshot(repoFull:string, commitSha:string){
   if(!res.body)throw new Error('GitHub codeload returned no body')
   const decompressed=res.body.pipeThrough(new DecompressionStream('gzip'))
   const tar=new Uint8Array(await new Response(decompressed).arrayBuffer())
-  const files:{file:string;data:string;encoding:'base64'}[]=[]
+  const entries:{fullName:string;data:Uint8Array}[]=[]
   let offset=0
-  let rootPrefix=''
   while(offset+512<=tar.length){
     const header=tar.subarray(offset,offset+512)
     if(header.every(byte=>byte===0))break
@@ -81,26 +80,27 @@ async function fetchCodeloadSnapshot(repoFull:string, commitSha:string){
     const size=tarOctal(header,124,12)
     const type=String.fromCharCode(header[156]||48)
     const dataStart=offset+512
-    if(!rootPrefix&&fullName)rootPrefix=`${fullName.split('/')[0]}/`
-    const path=fullName.startsWith(rootPrefix)?fullName.slice(rootPrefix.length):fullName
     const regular=type==='0'||type==='\u0000'
-    if(regular&&path&&!path.startsWith('node_modules/')&&!path.startsWith('.next/')){
-      const data=tar.subarray(dataStart,dataStart+size)
-      files.push({file:path,data:bytesToBase64(data),encoding:'base64'})
-      if(files.length>400)throw new Error(`Repo has more than 400 files; snapshot limit is 400`)
-    }
+    if(regular&&fullName)entries.push({fullName,data:tar.slice(dataStart,dataStart+size)})
     offset=dataStart+Math.ceil(size/512)*512
   }
-  if(!files.length)throw new Error('GitHub codeload snapshot contained no files')
+  if(!entries.length)throw new Error('GitHub codeload snapshot contained no files')
+
+  const firstSegments=entries.map(entry=>entry.fullName.split('/')[0]).filter(Boolean)
+  const root=firstSegments.length&&firstSegments.every(segment=>segment===firstSegments[0])?`${firstSegments[0]}/`:''
+  const files:{file:string;data:string;encoding:'base64'}[]=[]
+  for(const entry of entries){
+    const path=root&&entry.fullName.startsWith(root)?entry.fullName.slice(root.length):entry.fullName
+    if(!path||path.startsWith('node_modules/')||path.startsWith('.next/'))continue
+    files.push({file:path,data:bytesToBase64(entry.data),encoding:'base64'})
+    if(files.length>400)throw new Error(`Repo has more than 400 files; snapshot limit is 400`)
+  }
+  if(!files.some(item=>item.file==='package.json'))throw new Error(`Codeload root normalization failed; package.json missing. Root=${root||'(none)'}`)
   return {files,commitSha,commitMessage:'snapshot deploy',authorName:'',authorEmail:''}
 }
 
 async function fetchRepoSnapshot(repoFull: string, branch: string, expectedCommitSha?:string|null) {
-  // When the caller already resolved an exact commit SHA, use codeload directly.
-  // This avoids the unauthenticated GitHub REST API's low shared-IP rate limit while
-  // keeping the deployed source deterministic.
   if(expectedCommitSha)return fetchCodeloadSnapshot(repoFull,expectedCommitSha)
-
   const commit = await ghRequest(`/repos/${repoFull}/commits/${encodeURIComponent(branch)}`)
   const tree = await ghRequest(`/repos/${repoFull}/git/trees/${commit.commit.tree.sha}?recursive=1`)
   if (tree.truncated) throw new Error('GitHub tree is truncated; repo too large for snapshot deploy')
