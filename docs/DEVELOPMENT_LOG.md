@@ -12,6 +12,67 @@ Rules:
 
 ---
 
+## 2026-08-17 KST — Cross-session workspace rehydration protocol established
+
+### Goal
+
+Make local workspace handling deterministic across ChatGPT/Codex conversations without assuming `/mnt/data` persists between sessions.
+
+The user requirement was to make development feel continuous across sessions while keeping GitHub—not a sandbox filesystem—as the durable source of truth.
+
+### Meaningful source/process commit
+
+- `4fcea25458897f5ddd5a86f56c661d45f1b7e91f` — `docs(dev): add workspace rehydration protocol`
+  - added `docs/WORKSPACE_PROTOCOL.md`
+  - updated root `AGENTS.md`
+  - updated `docs/SESSION_PROTOCOL.md`
+  - updated `docs/HANDOFF_TEMPLATE.md`
+  - created all four protocol changes as one atomic Git tree/commit
+
+### Granular ledger
+
+- `CHANGE-20260817-003` maps to source commit `4fcea25458897f5ddd5a86f56c661d45f1b7e91f`
+- `bea86b8647dd9093a9f9bd73efe95dbf0a5a22f0` — `docs(ledger): record workspace rehydration protocol`
+  - bookkeeping-only commit; exempt from receiving another ledger entry
+
+### Durable workspace rules established
+
+- preferred logical workspace path is `/mnt/data/research-align`
+- that path is explicitly non-durable and must never be trusted merely because it exists
+- sessions first recover expected branch/HEAD from GitHub/HANDOFF
+- existing checkout reuse requires verified origin, branch, HEAD, and dirty state
+- dirty/locally-ahead checkouts are treated as recovery material; destructive reset/clean/delete is forbidden until state is preserved/classified
+- a missing checkout is rehydrated when normal Git network access exists
+- when shell Git network access is unavailable, the session declares `connector-only` mode and uses GitHub connector/tree/commit APIs rather than pretending a full checkout exists
+- `partial-scratch` mode is distinguished from a complete checkout
+- dependencies, caches, shell state, local env, and secrets are not considered durable
+- build-time `scripts/prebuild-ui-copy.mjs` mutation must be checked before/after local build/dev
+- completed logical changes must become GitHub commits promptly; the mount alone never counts as durable completion
+- HANDOFF now records workspace mode, local-only state, and `safe_to_lose_current_mount`
+- normal end state is `local_only_state = none` and `safe_to_lose_current_mount = yes`
+
+### Environment finding during verification
+
+A direct shell `git clone` test failed with:
+
+`Could not resolve host: github.com`
+
+The GitHub connector remained usable, so the current session was correctly classified as `connector-only`. The failed clone left no checkout behind, and the canonical `/mnt/data/research-align` path was absent at final reconciliation.
+
+This real environment constraint is exactly why the protocol includes a connector-only fallback.
+
+### Production state
+
+- no application runtime code changed
+- no Supabase schema/function/RLS change occurred
+- no Edge Function changed
+- no production deployment was triggered
+- live `deploy_control_state` remained `READY`
+- production deployment remained `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
+- production runtime commit remained `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
+
+---
+
 ## 2026-08-17 KST — Granular one-change-at-a-time ledger made mandatory
 
 ### Goal
