@@ -24,14 +24,24 @@ Handoff prepared: **YYYY-MM-DD HH:MM KST**
 - last runtime-affecting commit: `<sha>`
 - documentation-only commits after runtime commit: `<sha list or none>`
 
-### Commits created this session
+### Meaningful source commits created this session
 
-List in chronological order:
+List in chronological order. Do not include ledger-only or final handoff bookkeeping commits here.
 
 1. `<sha>` — `<message>` — `<why this is one logical change>`
 2. ...
 
-If no code commits were created, state that explicitly.
+If no meaningful source commits were created, state that explicitly.
+
+### Granular change ledger entries this session
+
+Every meaningful source commit above must map to exactly one entry in `docs/CHANGE_LEDGER.md`.
+
+| Change ID | Source commit | Short description | Latest state |
+|---|---|---|---|
+| `CHANGE-YYYYMMDD-NNN` | `<sha>` | `<change>` | `<committed/verified/production-deployed/...>` |
+
+If a meaningful source commit has no ledger entry, handoff is incomplete.
 
 ## 3. In-progress work
 
@@ -77,23 +87,23 @@ From live `public.deploy_control_state`:
 
 For each migration:
 
-| Migration | Source commit | Applied production? | Live verification |
-|---|---|---:|---|
-| `<name>` | `<sha>` | yes/no | `<query/definition/result>` |
+| Migration | Source commit | Change ID | Applied production? | Live verification |
+|---|---|---|---:|---|
+| `<name>` | `<sha>` | `CHANGE-...` | yes/no | `<query/definition/result>` |
 
 If none, say `None`.
 
 ### Functions / triggers / RLS changed
 
-- `<object>` — `<exact change>` — `<verified how>`
+- `<object>` — `<exact change>` — `<verified how>` — `<CHANGE-ID>`
 
 ## 6. Edge Functions
 
 For each touched function:
 
-| Function | Change | verify_jwt/auth | Live version/status | Invocation verification |
-|---|---|---|---|---|
-| `<slug>` | ... | ... | ... | ... |
+| Function | Change ID | Change | verify_jwt/auth | Live version/status | Invocation verification |
+|---|---|---|---|---|---|
+| `<slug>` | `CHANGE-...` | ... | ... | ... | ... |
 
 If none, say `None`.
 
@@ -105,9 +115,9 @@ A probe left enabled must be treated as unresolved work.
 
 ## 7. Application files/areas changed
 
-Group by logical commit, not as an undifferentiated file dump.
+Group by Change ID / logical source commit, not as an undifferentiated file dump.
 
-### `<commit message>`
+### `CHANGE-...` — `<source commit message>`
 
 - `path/file`
 - `path/file`
@@ -115,23 +125,23 @@ Group by logical commit, not as an undifferentiated file dump.
 
 ## 8. Verification actually performed
 
-Only list checks actually executed.
+Only list checks actually executed. Map each check to the relevant Change ID when possible.
 
 ### Build/static checks
 
-- `[PASS/FAIL] <command/check>` — `<important output>`
+- `[PASS/FAIL] CHANGE-... — <command/check>` — `<important output>`
 
 ### Database verification
 
-- `[PASS/FAIL] <query/constraint/RPC test>` — `<result>`
+- `[PASS/FAIL] CHANGE-... — <query/constraint/RPC test>` — `<result>`
 
 ### Edge/provider verification
 
-- `[PASS/FAIL] ...`
+- `[PASS/FAIL] CHANGE-... — ...`
 
 ### Production E2E
 
-- `[PASS/FAIL] <exact route/flow>` — `<result>`
+- `[PASS/FAIL] CHANGE-... — <exact route/flow>` — `<result>`
 
 Do not write “tested” without stating what was tested.
 
@@ -142,6 +152,7 @@ Do not write “tested” without stating what was tested.
   - root cause if known:
   - fixed? yes/no
   - commit/reference:
+  - change ID if fixed:
 
 ## 10. Current product state affected by this session
 
@@ -184,18 +195,22 @@ Then optional ordered follow-ups:
 ## 13. Recovery instructions if this handoff is stale
 
 1. inspect commits newer than `current GitHub main HEAD` recorded above
-2. inspect the recorded active work branch
-3. query Supabase migration history
-4. query relevant Edge Function versions
-5. query `deploy_control_state`
-6. reconstruct source/DB/edge/deployment/verification state before writing new code
+2. compare meaningful source commits against `docs/CHANGE_LEDGER.md`
+3. reconstruct any missing ledger entry before new independent development
+4. inspect the recorded active work branch
+5. query Supabase migration history
+6. query relevant Edge Function versions
+7. query `deploy_control_state`
+8. reconstruct source/ledger/DB/edge/deployment/verification state before writing new code
 
 ## 14. Session log/documentation status
 
+- `docs/CHANGE_LEDGER.md` reconciled with all meaningful source commits? yes/no
+- Change IDs created/updated this session: `<list>`
 - `docs/PROJECT_STATE.md` updated? yes/no/not needed
 - `docs/DEVELOPMENT_LOG.md` appended? yes/no
 - final handoff commit: `<sha; fill after commit if possible, otherwise state that current file creation commit must be queried>`
 
 ## 15. Suggested next-chat prompt
 
-> Continue `stpcoder/research-align`. Read root `AGENTS.md` and follow its full startup protocol. Read `docs/HANDOFF.md`, `docs/PROJECT_STATE.md`, and `docs/SESSION_PROTOCOL.md`; read `docs/ADMIN_DESIGN_SYSTEM.md` for UI work. Verify current GitHub branch/HEAD and live Supabase `deploy_control_state` before changing anything. Continue from the exact next action in HANDOFF, commit each verified logical change atomically, and finish by updating HANDOFF and DEVELOPMENT_LOG.
+> Continue `stpcoder/research-align`. Read root `AGENTS.md` and follow its full startup protocol. Read `docs/HANDOFF.md`, `docs/PROJECT_STATE.md`, `docs/SESSION_PROTOCOL.md`, and `docs/CHANGE_LEDGER.md`; read `docs/ADMIN_DESIGN_SYSTEM.md` for UI work. Verify current GitHub branch/HEAD and live Supabase `deploy_control_state` before changing anything. Continue from the exact next action in HANDOFF. For every meaningful logical modification, create one atomic source commit and one corresponding CHANGE_LEDGER entry before starting the next independent change. Finish by reconciling CHANGE_LEDGER, updating HANDOFF, and appending DEVELOPMENT_LOG.

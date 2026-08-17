@@ -10,9 +10,10 @@ Before changing anything, read in this order:
 2. `docs/HANDOFF.md` — exact latest operational state and active work.
 3. `docs/PROJECT_STATE.md` — durable architecture and implemented feature inventory.
 4. `docs/SESSION_PROTOCOL.md` — exact start/work/commit/deploy/handoff procedure.
-5. `docs/DEVELOPMENT_LOG.md` — prior decisions/regressions when relevant.
-6. `docs/ADMIN_DESIGN_SYSTEM.md` — mandatory for researcher/admin UI work.
-7. `deploy-control/README.md` — mandatory for deployment/control-plane work.
+5. `docs/CHANGE_LEDGER.md` — one entry per meaningful logical modification.
+6. `docs/DEVELOPMENT_LOG.md` — prior session-level decisions/regressions when relevant.
+7. `docs/ADMIN_DESIGN_SYSTEM.md` — mandatory for researcher/admin UI work.
+8. `deploy-control/README.md` — mandatory for deployment/control-plane work.
 
 Then verify live state. Never assume an old handoff SHA is still current.
 
@@ -23,7 +24,7 @@ When sources disagree, use this order:
 1. Live Supabase production schema, migration history, functions, RLS, Edge Functions, and `deploy_control_state`.
 2. Current GitHub branch/commit being worked on; `main` is canonical production source.
 3. Current production deployment metadata.
-4. `docs/HANDOFF.md` and `docs/PROJECT_STATE.md`.
+4. `docs/HANDOFF.md`, `docs/PROJECT_STATE.md`, and `docs/CHANGE_LEDGER.md`.
 5. `README.md` and `SOURCE_MANIFEST.json`.
 
 `README.md` and `SOURCE_MANIFEST.json` contain legacy KeyID-era material and are not authoritative unless verified.
@@ -90,13 +91,13 @@ Therefore:
 - Inspect `scripts/prebuild-ui-copy.mjs` before editing `page.tsx`.
 - Removing this rewrite is desirable technical debt, but only with full behavior parity and explicit testing.
 
-## 6. Commit discipline — mandatory
+## 6. Commit and granular change-record discipline — mandatory
 
 The purpose is to make every completed change recoverable from GitHub even if the conversation ends immediately afterward.
 
-### One logical change per commit
+### One logical change per source commit
 
-A commit should answer one sentence: “this commit does X.”
+A source commit should answer one sentence: “this commit does X.”
 
 Good examples:
 
@@ -104,19 +105,34 @@ Good examples:
 - `feat(form): add session preparation instructions`
 - `db(schedule): make overlap trigger buffer-aware`
 - `ops(mail): disable temporary quota probe`
-- `docs(handoff): record production state after schedule fix`
 
-Do not mix an unrelated UI cleanup, database hardening, and email change in one commit.
+Do not mix unrelated UI cleanup, database hardening, and email changes in one source commit.
 
 ### One logical change may span many files
 
-If one feature requires component + type + migration + Edge Function changes, those files should normally be one atomic commit. Do not fragment a single logical feature into arbitrary per-file commits merely because the API edits files one at a time. Use a local git commit or GitHub tree/commit APIs when necessary.
+If one feature requires component + type + migration + Edge Function changes, those files should normally be one atomic source commit. Do not fragment a single logical feature into arbitrary per-file commits merely because an API edits files one at a time. Use local git or GitHub tree/commit APIs when necessary.
 
 ### Commit completed checkpoints promptly
 
 Do not keep hours of already-working changes only in an ephemeral working tree. Once a logical checkpoint is implemented and verified enough to stand on its own, commit it before starting the next independent change.
 
 Do not commit broken/WIP code to `main` solely as a backup. For larger or risky work, use a work branch.
+
+### Every meaningful source change gets one `CHANGE_LEDGER` entry
+
+After creating a meaningful source commit, and **before starting the next independent logical change**:
+
+1. prepend one entry to `docs/CHANGE_LEDGER.md`
+2. reference the exact source commit SHA
+3. describe exact behavior changed and files/DB/functions touched
+4. record current DB/Edge/deployment/verification status
+5. commit the ledger bookkeeping, usually as `docs(ledger): record <short-change>`
+
+Later migration/deployment/E2E results for that same logical change should update the same ledger entry before handoff.
+
+Pure `docs(ledger): ...` and final `docs(handoff): ...` bookkeeping commits do **not** need their own ledger entries; otherwise logging would recurse forever.
+
+`docs/DEVELOPMENT_LOG.md` is still required, but it is session-level narrative. `docs/CHANGE_LEDGER.md` is the granular one-change-at-a-time record.
 
 ### Branch rule
 
@@ -126,6 +142,7 @@ For multi-step features, refactors, risky migrations, or work likely to cross a 
 
 - create `work/YYYYMMDD-<short-topic>`
 - commit each verified logical checkpoint there
+- record each source commit in `docs/CHANGE_LEDGER.md`
 - record `active_branch` and `last_verified_commit` in `docs/HANDOFF.md`
 - continue the same branch in the next session
 - merge/fast-forward to `main` only after the complete change passes required checks
@@ -141,7 +158,9 @@ Prefer:
 - `ops(scope): ...` — deployment/provider/operations
 - `refactor(scope): ...` — behavior-preserving structural change
 - `test(scope): ...` — test coverage/probes without product behavior change
-- `docs(scope): ...` — documentation/handoff
+- `docs(ledger): ...` — granular ledger bookkeeping
+- `docs(handoff): ...` — final session handoff/log bookkeeping
+- `docs(scope): ...` — other documentation
 - `chore(scope): ...` — maintenance that fits none above
 
 ### Final handoff is its own commit
@@ -159,9 +178,11 @@ Scheduling and contact correctness live partly in PostgreSQL. Never make fronten
 For a schema/function change:
 
 1. Write/commit the migration in GitHub with the code that depends on it, or use an explicit staged rollout.
-2. Apply it to the live Supabase project when production rollout is intended.
-3. Verify the live definition/constraint/RLS/function after application.
-4. Record the exact migration name in `docs/HANDOFF.md`.
+2. Create/update the corresponding `CHANGE_LEDGER` entry.
+3. Apply it to the live Supabase project when production rollout is intended.
+4. Verify the live definition/constraint/RLS/function after application.
+5. Update that same ledger entry with applied/verified state.
+6. Record the exact migration name in `docs/HANDOFF.md`.
 
 For breaking database changes, prefer expand/deploy/contract:
 
@@ -253,17 +274,25 @@ Follow `docs/SESSION_PROTOCOL.md`. At minimum for each meaningful work item:
 2. define scope and invariant impact
 3. implement smallest coherent change
 4. run relevant checks
-5. commit the verified logical change
-6. apply/verify DB or Edge Function changes as applicable
-7. deploy only when intended
-8. verify production behavior
-9. record exact state in handoff/log
+5. commit the verified logical source change
+6. write and commit its `docs/CHANGE_LEDGER.md` entry
+7. apply/verify DB or Edge Function changes as applicable and update the same ledger entry
+8. deploy only when intended and update the same ledger entry
+9. verify production behavior
+10. record exact final state in handoff/log
 
 Avoid unrelated refactors during operational fixes unless required for correctness.
 
 ## 13. Required end-of-session protocol
 
 Before ending a development session:
+
+### Reconcile `docs/CHANGE_LEDGER.md`
+
+- every meaningful source commit created this session must have exactly one corresponding ledger entry
+- each entry must reference the exact source commit SHA
+- DB/Edge/deployment/verification fields must reflect the latest known state
+- missing ledger entries must be reconstructed before handoff
 
 ### Replace `docs/HANDOFF.md`
 
@@ -277,7 +306,8 @@ Use `docs/HANDOFF_TEMPLATE.md` and include:
 - last verified logical commit
 - deployed runtime commit
 - production deployment ID/status
-- exact commits created this session
+- exact source commits created this session
+- exact `CHANGE_LEDGER` entry IDs created/updated this session
 - files/areas changed
 - migrations/functions/Edge Functions changed
 - tests/E2E actually run and results
@@ -288,7 +318,7 @@ Use `docs/HANDOFF_TEMPLATE.md` and include:
 
 ### Append `docs/DEVELOPMENT_LOG.md`
 
-Add a factual dated entry. Never rewrite old entries simply for narrative cleanup.
+Add a factual dated session-level entry. Never rewrite old entries simply for narrative cleanup.
 
 ### Update `docs/PROJECT_STATE.md` only for durable architecture/product-state changes
 
@@ -304,11 +334,13 @@ If a previous conversation ended unexpectedly:
 
 1. Read `docs/HANDOFF.md` but do not assume it captured the very last action.
 2. Inspect commits after the handoff's recorded `main_head` / `last_verified_commit`.
-3. If a work branch is recorded, inspect that branch before creating a new one.
-4. Query live Supabase migration history and `deploy_control_state`.
-5. Distinguish four states explicitly: source committed, DB applied, Edge Function deployed, Vercel runtime deployed.
-6. Continue from the newest verified checkpoint; do not redo already-committed work blindly.
-7. If an unverified commit exists, inspect/test it before building on it.
+3. Read `docs/CHANGE_LEDGER.md` and compare entries with meaningful source commits.
+4. If a meaningful source commit exists without a ledger entry, reconstruct that entry before starting new independent work.
+5. If a work branch is recorded, inspect that branch before creating a new one.
+6. Query live Supabase migration history and `deploy_control_state`.
+7. Distinguish four states explicitly: source committed, DB applied, Edge Function deployed, Vercel runtime deployed.
+8. Continue from the newest verified checkpoint; do not redo already-committed work blindly.
+9. If an unverified commit exists, inspect/test it before building on it.
 
 ## 15. Known technical debt
 

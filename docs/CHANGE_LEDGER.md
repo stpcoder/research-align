@@ -17,11 +17,25 @@ It exists for cross-session recovery. A new conversation should be able to answe
    - important developer-protocol change
 2. Record an entry **after the logical source commit is created and before starting the next independent change**.
 3. Every entry must reference the exact source commit SHA it describes.
-4. If the change later gets deployed, migrated, or further verified, update that entry with the resulting deployment/migration/verification state before session handoff.
-5. Never silently delete old entries. Corrections should explain what was corrected.
-6. Pure ledger/handoff bookkeeping commits are exempt from getting their own ledger entry; otherwise logging would recurse forever.
-7. Tiny mechanical edits that are inseparable from one logical change belong inside that change's single entry, not separate entries for every line edit.
-8. `docs/DEVELOPMENT_LOG.md` remains the session-level narrative. This file is the **per-change ledger**.
+4. After adding the ledger entry, commit the ledger bookkeeping before beginning the next independent logical change.
+5. If the change later gets deployed, migrated, or further verified, update the same entry with the resulting deployment/migration/verification state before session handoff.
+6. Never silently delete old entries. Corrections should explain what was corrected.
+7. Pure `docs(ledger): ...` and final `docs(handoff): ...` bookkeeping commits are exempt from getting their own ledger entry; otherwise logging would recurse forever.
+8. Tiny mechanical edits that are inseparable from one logical change belong inside that change's single entry, not separate entries for every line edit.
+9. `docs/DEVELOPMENT_LOG.md` remains the session-level narrative. This file is the **per-change ledger**.
+
+## Required sequence
+
+```text
+logical change implemented
+  -> verification checkpoint
+  -> source commit
+  -> prepend one CHANGE_LEDGER entry referencing that commit SHA
+  -> commit ledger bookkeeping
+  -> only then start the next independent logical change
+```
+
+If a session terminates between the source commit and the ledger bookkeeping commit, the next session must reconstruct the missing entry from Git history before proceeding.
 
 ## Entry template
 
@@ -65,16 +79,16 @@ It exists for cross-session recovery. A new conversation should be able to answe
 
 ## CHANGE-20260817-001 — Establish granular per-change recording rule
 
-- Time: 2026-08-17 12:32 KST
+- Time: 2026-08-17 12:33 KST
 - Type: docs
 - Area: development-process
-- Source commit: `pending-this-change`
+- Source commit: `2e475a880495575de41376a3fde786ae7f749abd`
 - Branch: `main`
-- Status: committed
+- Status: verified
 
 ### What changed
-- Added this granular change ledger so future development records every meaningful logical modification individually rather than only summarizing at session end.
-- Defined the one-logical-change/one-ledger-entry relationship and exempted bookkeeping-only ledger/handoff commits from recursive logging.
+- Added a granular change ledger so future development records every meaningful logical modification individually rather than only summarizing at session end.
+- Established the one-logical-change/one-ledger-entry model.
 
 ### Files / objects
 - `docs/CHANGE_LEDGER.md`
@@ -90,10 +104,10 @@ It exists for cross-session recovery. A new conversation should be able to answe
 
 ### Application deployment
 - Deployment ID: not deployed
-- Production commit: unchanged
+- Production commit: unchanged (`dd5eab06280f78f37d5926f4d940ef697c04d4b0`)
 
 ### Verification
-- `[PASS]` file committed to GitHub `main` and retrievable through the GitHub connector.
+- `[PASS]` GitHub `main` advanced to `2e475a880495575de41376a3fde786ae7f749abd` with this file added.
 
 ### Notes / follow-up
-- The exact source SHA is discoverable as the commit that added this file. Future entries must use exact SHAs once known.
+- Protocol documents are being updated immediately afterward to make this ledger mandatory for all future development work.
