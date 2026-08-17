@@ -77,6 +77,48 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-002 — Make per-change ledger mandatory in development protocol
+
+- Time: 2026-08-17 12:34 KST
+- Type: docs
+- Area: development-process
+- Source commit: `d8b63b1ef32de06afacea97208910e889fdf4a3f`
+- Branch: `main`
+- Status: verified
+
+### What changed
+- Made `docs/CHANGE_LEDGER.md` mandatory reading and mandatory per-change bookkeeping.
+- Required every meaningful source commit to receive exactly one granular ledger entry before the next independent logical change begins.
+- Added recovery rules for commits that exist without a ledger entry after an interrupted session.
+- Extended the handoff template so every session maps source commits to Change IDs and records DB/Edge/deployment verification by Change ID.
+
+### Files / objects
+- `AGENTS.md`
+- `docs/SESSION_PROTOCOL.md`
+- `docs/HANDOFF_TEMPLATE.md`
+- `docs/CHANGE_LEDGER.md`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: none
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: none
+
+### Application deployment
+- Deployment ID: not deployed
+- Production commit: unchanged (`dd5eab06280f78f37d5926f4d940ef697c04d4b0`)
+
+### Verification
+- `[PASS]` policy/source commit created as `d8b63b1ef32de06afacea97208910e889fdf4a3f` and fast-forwarded to `main`.
+
+### Notes / follow-up
+- This ledger bookkeeping commit is exempt from its own ledger entry by rule.
+
+---
+
 ## CHANGE-20260817-001 — Establish granular per-change recording rule
 
 - Time: 2026-08-17 12:33 KST
@@ -110,4 +152,4 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - `[PASS]` GitHub `main` advanced to `2e475a880495575de41376a3fde786ae7f749abd` with this file added.
 
 ### Notes / follow-up
-- Protocol documents are being updated immediately afterward to make this ledger mandatory for all future development work.
+- Superseded by the stronger mandatory protocol in `CHANGE-20260817-002`; the original entry remains for history.
