@@ -1,6 +1,6 @@
 # AGENTS.md — Research Align Development Contract
 
-This repository is designed to be developed across many short AI/developer sessions. The repository, not chat history, is the durable memory.
+This repository is designed to be developed across many short AI/developer sessions. The repository, not chat history or a local mount, is the durable memory.
 
 ## 1. Mandatory session startup
 
@@ -9,13 +9,14 @@ Before changing anything, read in this order:
 1. `AGENTS.md` — durable rules.
 2. `docs/HANDOFF.md` — exact latest operational state and active work.
 3. `docs/PROJECT_STATE.md` — durable architecture and implemented feature inventory.
-4. `docs/SESSION_PROTOCOL.md` — exact start/work/commit/deploy/handoff procedure.
-5. `docs/CHANGE_LEDGER.md` — one entry per meaningful logical modification.
-6. `docs/DEVELOPMENT_LOG.md` — prior session-level decisions/regressions when relevant.
-7. `docs/ADMIN_DESIGN_SYSTEM.md` — mandatory for researcher/admin UI work.
-8. `deploy-control/README.md` — mandatory for deployment/control-plane work.
+4. `docs/WORKSPACE_PROTOCOL.md` — exact `/mnt/data` rehydration/reuse/recovery procedure.
+5. `docs/SESSION_PROTOCOL.md` — exact start/work/commit/deploy/handoff procedure.
+6. `docs/CHANGE_LEDGER.md` — one entry per meaningful logical modification.
+7. `docs/DEVELOPMENT_LOG.md` — prior session-level decisions/regressions when relevant.
+8. `docs/ADMIN_DESIGN_SYSTEM.md` — mandatory for researcher/admin UI work.
+9. `deploy-control/README.md` — mandatory for deployment/control-plane work.
 
-Then verify live state. Never assume an old handoff SHA is still current.
+Then verify live state and workspace state. Never assume an old handoff SHA or an existing `/mnt/data/research-align` checkout is still current.
 
 ## 2. Source-of-truth order
 
@@ -25,7 +26,10 @@ When sources disagree, use this order:
 2. Current GitHub branch/commit being worked on; `main` is canonical production source.
 3. Current production deployment metadata.
 4. `docs/HANDOFF.md`, `docs/PROJECT_STATE.md`, and `docs/CHANGE_LEDGER.md`.
-5. `README.md` and `SOURCE_MANIFEST.json`.
+5. A verified local Git checkout at `/mnt/data/research-align`.
+6. `README.md` and `SOURCE_MANIFEST.json`.
+
+A local mount is never authoritative merely because it exists. It must pass the verification rules in `docs/WORKSPACE_PROTOCOL.md` before reuse.
 
 `README.md` and `SOURCE_MANIFEST.json` contain legacy KeyID-era material and are not authoritative unless verified.
 
@@ -41,8 +45,28 @@ These are references, not secrets:
 - Vercel project ID: `prj_m1b582jShPhKBRfxY8GLDxAPFrGQ`
 - Vercel team ID: `team_muySkNMTu5rLXyDOd5pTz1tw`
 - Canonical production URL: `https://research-align.vercel.app`
+- Preferred local workspace path: `/mnt/data/research-align`
 
-Changing SHAs, deployment IDs, active branch, and in-progress work belong in `docs/HANDOFF.md`.
+Changing SHAs, deployment IDs, active branch, in-progress work, and current workspace mode belong in `docs/HANDOFF.md`.
+
+## 3A. Workspace hydration and mount rule
+
+`/mnt/data/research-align` is a preferred logical workspace path, **not persistent storage**.
+
+Every session must follow `docs/WORKSPACE_PROTOCOL.md` before treating local files as usable source.
+
+Core rules:
+
+- determine expected branch/HEAD from GitHub + HANDOFF before touching the mount
+- if `/mnt/data/research-align` exists, verify repo origin, branch, HEAD, and dirty state before reuse
+- never run `git reset --hard`, `git clean -fd`, or delete a dirty/unknown checkout before preserving potentially valuable local work
+- if no valid checkout exists and normal Git network access is available, rehydrate a fresh checkout at `/mnt/data/research-align`
+- if shell Git network access is unavailable but the GitHub connector works, use `connector-only` mode rather than pretending a full checkout exists
+- never claim local build/lint/E2E verification that was not actually possible in the current workspace mode
+- do not recover secrets from an old mount
+- at session end, assume the entire mount may disappear; all completed work must already be durable in GitHub and live infrastructure state must be recorded
+
+A surviving mount is an optimization/recovery artifact, not the cross-session memory system.
 
 ## 4. Deployment architecture — do not replace it casually
 
@@ -89,11 +113,12 @@ Therefore:
 - Do not treat `src/app/page.tsx` alone as canonical runtime behavior.
 - Prefer the Unified components for current behavior.
 - Inspect `scripts/prebuild-ui-copy.mjs` before editing `page.tsx`.
+- In a local checkout, compare `git status`/diff before and after build/dev because the prebuild script mutates source.
 - Removing this rewrite is desirable technical debt, but only with full behavior parity and explicit testing.
 
 ## 6. Commit and granular change-record discipline — mandatory
 
-The purpose is to make every completed change recoverable from GitHub even if the conversation ends immediately afterward.
+The purpose is to make every completed change recoverable from GitHub even if the conversation or local filesystem ends immediately afterward.
 
 ### One logical change per source commit
 
@@ -264,28 +289,40 @@ Do not introduce broad fuzzy matching that may attach one person's inquiry to an
 - Keep provider material in private/non-exposed storage.
 - Treat `SECURITY DEFINER` functions as privileged APIs; review grants explicitly.
 - Temporary/probe Edge Functions must be removed or returned to `verify_jwt=true` + HTTP 410 stubs after use.
-- Never include secret values in logs, docs, commits, or handoffs.
+- Never include secret values in logs, docs, commits, handoffs, or workspace recovery patches.
 
 ## 12. Work execution protocol
 
-Follow `docs/SESSION_PROTOCOL.md`. At minimum for each meaningful work item:
+Follow `docs/WORKSPACE_PROTOCOL.md` and `docs/SESSION_PROTOCOL.md`. At minimum for each meaningful work item:
 
-1. verify baseline
-2. define scope and invariant impact
-3. implement smallest coherent change
-4. run relevant checks
-5. commit the verified logical source change
-6. write and commit its `docs/CHANGE_LEDGER.md` entry
-7. apply/verify DB or Edge Function changes as applicable and update the same ledger entry
-8. deploy only when intended and update the same ledger entry
-9. verify production behavior
-10. record exact final state in handoff/log
+1. recover expected branch/HEAD from GitHub/HANDOFF
+2. verify or rehydrate workspace; declare `git-checkout`, `connector-only`, or `partial-scratch` mode
+3. verify live baseline
+4. define scope and invariant impact
+5. implement smallest coherent change
+6. run relevant checks that are actually possible in the declared workspace mode
+7. commit the verified logical source change
+8. write and commit its `docs/CHANGE_LEDGER.md` entry
+9. apply/verify DB or Edge Function changes as applicable and update the same ledger entry
+10. deploy only when intended and update the same ledger entry
+11. verify production behavior
+12. record exact final source/infrastructure/workspace state in handoff/log
 
 Avoid unrelated refactors during operational fixes unless required for correctness.
 
 ## 13. Required end-of-session protocol
 
 Before ending a development session:
+
+### Reconcile workspace durability
+
+- record workspace mode and preferred path
+- if a local checkout exists, record branch, local HEAD, whether it matches remote, and working-tree cleanliness
+- identify any local-only state
+- completed logical changes must already be durable in GitHub
+- explicitly state whether losing the current mount would lose meaningful work
+
+Normal target: `safe_to_lose_current_mount = yes`.
 
 ### Reconcile `docs/CHANGE_LEDGER.md`
 
@@ -301,6 +338,9 @@ Use `docs/HANDOFF_TEMPLATE.md` and include:
 - KST timestamp
 - `active_branch`
 - work status: `clean`, `in_progress`, or `blocked`
+- workspace mode and preferred path
+- local checkout branch/HEAD/dirty state when applicable
+- any local-only state and whether the mount is safe to lose
 - current GitHub `main` HEAD
 - active branch HEAD if different
 - last verified logical commit
@@ -333,14 +373,16 @@ The final session documentation must itself be committed so the next conversatio
 If a previous conversation ended unexpectedly:
 
 1. Read `docs/HANDOFF.md` but do not assume it captured the very last action.
-2. Inspect commits after the handoff's recorded `main_head` / `last_verified_commit`.
+2. Inspect live GitHub commits after the handoff's recorded `main_head` / `last_verified_commit`.
 3. Read `docs/CHANGE_LEDGER.md` and compare entries with meaningful source commits.
-4. If a meaningful source commit exists without a ledger entry, reconstruct that entry before starting new independent work.
-5. If a work branch is recorded, inspect that branch before creating a new one.
-6. Query live Supabase migration history and `deploy_control_state`.
-7. Distinguish four states explicitly: source committed, DB applied, Edge Function deployed, Vercel runtime deployed.
-8. Continue from the newest verified checkpoint; do not redo already-committed work blindly.
-9. If an unverified commit exists, inspect/test it before building on it.
+4. Query live Supabase/Edge/deployment state relevant to those commits.
+5. Only then inspect any surviving `/mnt/data/research-align` according to `docs/WORKSPACE_PROTOCOL.md`.
+6. If a meaningful source commit exists without a ledger entry, reconstruct that entry before starting new independent work.
+7. If a work branch is recorded, inspect that branch before creating a new one.
+8. If the local checkout has uncommitted or local-only commits, preserve/classify them before destructive commands.
+9. Distinguish states explicitly: source committed, ledger recorded, DB applied, Edge Function deployed, Vercel runtime deployed, behavior verified, local-only state.
+10. Continue from the newest verified checkpoint; do not redo already-committed work blindly.
+11. If an unverified commit exists, inspect/test it before building on it.
 
 ## 15. Known technical debt
 

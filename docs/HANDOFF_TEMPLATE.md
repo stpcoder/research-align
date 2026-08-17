@@ -8,6 +8,8 @@ Copy this structure into `docs/HANDOFF.md` at the end of every development sessi
 
 Handoff prepared: **YYYY-MM-DD HH:MM KST**
 
+Read root `AGENTS.md` first, then this file, `docs/PROJECT_STATE.md`, `docs/WORKSPACE_PROTOCOL.md`, `docs/SESSION_PROTOCOL.md`, and `docs/CHANGE_LEDGER.md`.
+
 ## 1. Session identity
 
 - repository: `stpcoder/research-align`
@@ -15,6 +17,23 @@ Handoff prepared: **YYYY-MM-DD HH:MM KST**
 - work status: `<clean | in_progress | blocked>`
 - session topic: `<short description>`
 - next session should continue branch: `<branch>`
+
+### Workspace hydration state
+
+- preferred workspace path: `/mnt/data/research-align`
+- workspace mode: `<git-checkout | connector-only | partial-scratch>`
+- local path present: `<yes/no/not-applicable>`
+- local origin verified as `stpcoder/research-align`: `<yes/no/not-applicable>`
+- local branch: `<branch or not-applicable>`
+- local HEAD: `<sha or not-applicable>`
+- relevant remote branch HEAD: `<sha>`
+- local HEAD matches intended remote HEAD: `<yes/no/not-applicable>`
+- working tree clean: `<yes/no/not-applicable>`
+- local-only state remaining: `<none or exact description>`
+- safe to lose current mount: `<yes/no>`
+- dependencies/build environment available this session: `<yes/no/partial + notes>`
+
+`safe to lose current mount = no` is exceptional and must include exact recovery instructions.
 
 ## 2. Exact source state
 
@@ -62,6 +81,8 @@ If a meaningful source commit has no ledger entry, handoff is incomplete.
 - `<none>` or exact description
 
 Never say only “partially done”. Describe the boundary.
+
+If any uncommitted/local-only source exists only under `/mnt/data`, explain how it was preserved and whether the next session can recover it if the mount disappears.
 
 ## 4. Production application state
 
@@ -127,9 +148,16 @@ Group by Change ID / logical source commit, not as an undifferentiated file dump
 
 Only list checks actually executed. Map each check to the relevant Change ID when possible.
 
+### Workspace/source verification
+
+- `[PASS/FAIL]` workspace mode declaration and expected branch/HEAD recovery
+- `[PASS/FAIL/NOT AVAILABLE]` local origin/branch/HEAD/dirty-state verification
+- `[PASS/FAIL/NOT AVAILABLE]` local dependency/build environment availability
+- explain `connector-only` limitations instead of claiming unrun checks
+
 ### Build/static checks
 
-- `[PASS/FAIL] CHANGE-... — <command/check>` — `<important output>`
+- `[PASS/FAIL/NOT RUN] CHANGE-... — <command/check>` — `<important output or reason unavailable>`
 
 ### Database verification
 
@@ -194,14 +222,16 @@ Then optional ordered follow-ups:
 
 ## 13. Recovery instructions if this handoff is stale
 
-1. inspect commits newer than `current GitHub main HEAD` recorded above
+1. inspect current GitHub `main` and commits newer than the SHA recorded above
 2. compare meaningful source commits against `docs/CHANGE_LEDGER.md`
 3. reconstruct any missing ledger entry before new independent development
 4. inspect the recorded active work branch
 5. query Supabase migration history
 6. query relevant Edge Function versions
 7. query `deploy_control_state`
-8. reconstruct source/ledger/DB/edge/deployment/verification state before writing new code
+8. only then inspect any surviving `/mnt/data/research-align` according to `docs/WORKSPACE_PROTOCOL.md`
+9. preserve/classify local-only commits/uncommitted changes before destructive commands
+10. reconstruct source/ledger/DB/edge/deployment/verification/workspace state before writing new code
 
 ## 14. Session log/documentation status
 
@@ -209,8 +239,10 @@ Then optional ordered follow-ups:
 - Change IDs created/updated this session: `<list>`
 - `docs/PROJECT_STATE.md` updated? yes/no/not needed
 - `docs/DEVELOPMENT_LOG.md` appended? yes/no
+- workspace reconciled per `docs/WORKSPACE_PROTOCOL.md`? yes/no/not-applicable
+- safe to lose current mount? yes/no
 - final handoff commit: `<sha; fill after commit if possible, otherwise state that current file creation commit must be queried>`
 
 ## 15. Suggested next-chat prompt
 
-> Continue `stpcoder/research-align`. Read root `AGENTS.md` and follow its full startup protocol. Read `docs/HANDOFF.md`, `docs/PROJECT_STATE.md`, `docs/SESSION_PROTOCOL.md`, and `docs/CHANGE_LEDGER.md`; read `docs/ADMIN_DESIGN_SYSTEM.md` for UI work. Verify current GitHub branch/HEAD and live Supabase `deploy_control_state` before changing anything. Continue from the exact next action in HANDOFF. For every meaningful logical modification, create one atomic source commit and one corresponding CHANGE_LEDGER entry before starting the next independent change. Finish by reconciling CHANGE_LEDGER, updating HANDOFF, and appending DEVELOPMENT_LOG.
+> Continue `stpcoder/research-align`. Read root `AGENTS.md` and follow its full startup protocol. Read `docs/HANDOFF.md`, `docs/PROJECT_STATE.md`, `docs/WORKSPACE_PROTOCOL.md`, `docs/SESSION_PROTOCOL.md`, and `docs/CHANGE_LEDGER.md`; read `docs/ADMIN_DESIGN_SYSTEM.md` for UI work. Verify current GitHub branch/HEAD first. Then verify or rehydrate `/mnt/data/research-align` according to WORKSPACE_PROTOCOL; if a trustworthy full checkout is unavailable, explicitly use connector-only mode. Verify live Supabase `deploy_control_state` before changing anything. Continue from the exact next action in HANDOFF. For every meaningful logical modification, create one atomic source commit and one corresponding CHANGE_LEDGER entry before starting the next independent change. Finish by reconciling workspace state, CHANGE_LEDGER, HANDOFF, and DEVELOPMENT_LOG.
