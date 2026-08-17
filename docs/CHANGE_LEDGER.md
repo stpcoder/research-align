@@ -77,6 +77,55 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-003 — Add disposable-workspace rehydration and recovery protocol
+
+- Time: 2026-08-17 13:46 KST
+- Type: docs
+- Area: development-process / workspace
+- Source commit: `4fcea25458897f5ddd5a86f56c661d45f1b7e91f`
+- Branch: `main`
+- Status: verified
+
+### What changed
+- Added `docs/WORKSPACE_PROTOCOL.md` defining `/mnt/data/research-align` as a preferred logical workspace path rather than durable storage.
+- Defined `git-checkout`, `connector-only`, and `partial-scratch` workspace modes.
+- Required a new session to recover the expected GitHub branch/HEAD before trusting or modifying a surviving mount.
+- Added safe handling for clean/stale, dirty/locally-ahead, wrong-repository, and missing checkout states.
+- Prohibited destructive reset/clean/delete of a dirty unknown checkout until potentially valuable local work is preserved or classified.
+- Added a connector-only fallback for sandboxes where shell Git network access is unavailable.
+- Added rules for dependency/cache non-persistence, secret handling, build-time `prebuild-ui-copy.mjs` mutations, interrupted-session recovery, and end-of-session `safe_to_lose_current_mount` reconciliation.
+- Integrated workspace mode/state into `AGENTS.md`, `SESSION_PROTOCOL.md`, and `HANDOFF_TEMPLATE.md`.
+
+### Files / objects
+- `AGENTS.md`
+- `docs/WORKSPACE_PROTOCOL.md`
+- `docs/SESSION_PROTOCOL.md`
+- `docs/HANDOFF_TEMPLATE.md`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: production deploy-control state rechecked separately; no DB change made
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: none
+
+### Application deployment
+- Deployment ID: not deployed
+- Production commit: unchanged (`dd5eab06280f78f37d5926f4d940ef697c04d4b0`)
+
+### Verification
+- `[PASS]` four protocol files were committed atomically as source commit `4fcea25458897f5ddd5a86f56c661d45f1b7e91f` and `main` was fast-forwarded to that commit.
+- `[PASS]` live `deploy_control_state` remained `READY` on `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`, runtime commit `dd5eab06280f78f37d5926f4d940ef697c04d4b0`.
+- `[PASS]` current-session shell clone attempt demonstrated the intended fallback condition: direct Git failed with `Could not resolve host: github.com`, while the GitHub connector remained usable; the session therefore operated as `connector-only` for repository writes.
+
+### Notes / follow-up
+- The protocol intentionally does not promise physical `/mnt/data` persistence across conversations; it makes a surviving checkout reusable only after verification and otherwise reconstructs state from durable GitHub/live infrastructure.
+- This ledger bookkeeping commit is exempt from its own ledger entry by rule.
+
+---
+
 ## CHANGE-20260817-002 — Make per-change ledger mandatory in development protocol
 
 - Time: 2026-08-17 12:34 KST
