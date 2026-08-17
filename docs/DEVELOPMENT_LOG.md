@@ -12,6 +12,132 @@ Rules:
 
 ---
 
+## 2026-08-17 KST — Stop-before-delete, publish autosave, and deployment control recovery
+
+### User-facing goals
+
+Two reported researcher workflow problems were addressed:
+
+1. Published studies should be stopped before permanent deletion, with an obvious `모집 중지 -> 삭제` lifecycle.
+2. Publishing a newly created/edited study should automatically save unsaved Form Builder changes first, so returning home after `모집 시작` does not leave the public study on stale form configuration.
+
+### CHANGE-20260817-004 — stop before delete
+
+Source commit:
+
+- `19a3d9dbd51040d55d9617485f212f4597231447` — `fix(study): require stop before delete`
+
+Behavior:
+
+- `published -> 모집 중지 -> closed`
+- a published study cannot be deleted directly
+- once closed, the home action becomes `삭제`
+- permanent deletion still requires typing the exact study title
+- closed studies can be reopened with `모집 재개`
+
+### CHANGE-20260817-005 — save before publishing
+
+Source commit:
+
+- `1bde332ad88126b2eceb5361243c392be960466e` — `fix(form): save changes before publishing`
+
+Behavior:
+
+- Form Builder exposes its existing `save()` operation to the workspace while mounted
+- `모집 시작` / `모집 재개` first save dirty form state
+- publishing waits for dirty state to clear
+- if save/validation fails and dirty state remains, publishing is aborted rather than exposing stale persisted data
+- stopping a currently published study does not force an unrelated save
+
+Both product fixes currently flow through `scripts/prebuild-ui-copy.mjs`, consistent with the existing production architecture. Removing build-time source mutation remains separate technical debt.
+
+### Deployment incident: GitHub REST rate limit
+
+The first production deployment job for the new changes was:
+
+- job `e0bf2301-cb19-455e-bfd4-c9055df98ec1`
+- pg_net request `119`
+
+It failed before source snapshot creation because the live `vercel-control` function was reading the public repository through unauthenticated GitHub REST APIs from a shared Supabase egress IP. GitHub returned `API rate limit exceeded`.
+
+The stale job row initially remained `running`; after confirming request 119's HTTP 500 result it was corrected to `failed` with the actual rate-limit reason.
+
+### CHANGE-20260817-006 — exact-SHA codeload fallback
+
+Source commit:
+
+- `37d1be727d73824abd7d3b10b47023a78b8da5b6` — `ops(deploy): add codeload snapshot fallback`
+
+Changes:
+
+- source-controlled the previously live-only `vercel-control` function at `supabase/functions/vercel-control/index.ts`
+- added deterministic exact-SHA snapshot download through `codeload.github.com` when deploy manifest contains `commitSha`
+- retained GitHub REST snapshot mode for compatibility when no exact SHA is supplied
+- recorded `snapshotSource` in `deploy_control_state`
+
+Live `vercel-control` v3 was deployed with this fallback.
+
+### First codeload attempt and parser bug
+
+Exact-SHA deployment using v3 successfully bypassed GitHub REST rate limiting and created a Vercel deployment:
+
+- job `f4dbac77-d196-47ea-8e86-9edc81a2a84e`
+- pg_net request `120`
+- deployment `dpl_2x8TvtPSYyDCvZXT3mcx3P2PhJrk`
+
+Vercel then failed build with:
+
+- status `ERROR`
+- code `missing_pages_app`
+- `npm run vercel-build` exit 1
+
+The root cause was archive root normalization in the first tar parser, not the application feature changes.
+
+### CHANGE-20260817-007 — codeload root normalization
+
+Source commit:
+
+- `69bc18301e6964c04dfccefc40a0c88a7365a0b7` — `fix(deploy): normalize codeload archive root`
+
+Changes:
+
+- switched tar parsing to collect regular files first and strip the common root in a second pass
+- added an explicit `package.json` presence guard before Vercel deployment creation
+
+Live `vercel-control` was upgraded to **version 4**, status ACTIVE, `verify_jwt=false` with the existing custom high-entropy `controlKey` authentication.
+
+### Successful production rollout
+
+The corrected exact-SHA deployment used:
+
+- job `5f82cd22-5b48-4843-be49-7ec9e075a546`
+- pg_net request `121`
+- exact source SHA `79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`
+
+Result:
+
+- job status: `succeeded`
+- Vercel deployment: `dpl_namA9eDG4cEDWMDEqhwx8exTLxXZ`
+- Vercel state: `READY`
+- production URL: `https://research-align.vercel.app`
+- `deploy_control_state.details.commitSha`: `79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`
+- `deploy_control_state.details.snapshotSource`: `github-codeload`
+
+This successful Vercel build also verifies that the build-time source transformation containing CHANGE-004 and CHANGE-005 is syntactically/build valid in production.
+
+### Verification boundary
+
+Authenticated researcher browser click-flow E2E was **not** available in this connector-only session. Therefore the actual clicks `모집 시작`, `모집 중지`, and `삭제` were not browser-automated here. This limitation is explicitly preserved in CHANGE_LEDGER/HANDOFF rather than being described as tested.
+
+### Documentation / durable state
+
+- `CHANGE-20260817-004` through `CHANGE-20260817-007` were recorded individually
+- rollout state for all four entries was updated after the READY deployment
+- `docs/PROJECT_STATE.md` was updated to reflect the new study lifecycle, publish autosave, source-controlled `vercel-control`, and exact-SHA codeload path
+- workspace remained `connector-only`; no local-only source state is being carried forward
+
+---
+
 ## 2026-08-17 KST — Cross-session workspace rehydration protocol established
 
 ### Goal
@@ -120,7 +246,7 @@ Pure ledger and final handoff bookkeeping commits are exempt from their own ledg
 - confirmed `2e475a...` added the ledger
 - created policy commit `d8b63b...` and fast-forwarded `main`
 - committed `CHANGE-20260817-002` bookkeeping as `efeddbd...`
-- re-queried live `deploy_control_state`
+- re-queried live Supabase `deploy_control_state`
 - production remains `READY` on `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
 - production runtime commit remains `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
 - no runtime deployment was triggered because these were development-process documentation changes only
