@@ -77,6 +77,59 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-018 — Remove residual visual style drift and box/microcopy density
+
+- Time: 2026-08-17 21:36 KST
+- Type: refactor
+- Area: admin-ui / visual-consistency / css
+- Source commit: `3ae63c66fb5208e920b006b65cd02ab04c87f27e`
+- Branch: `work/20260817-visual-consistency-audit`
+- Status: committed
+
+### What changed
+- Consolidated structural researcher-UI CSS ownership so `admin-foundation.css` owns shared page headers, surfaces, controls, list rows, status badges, actions, rows, tables, typography, and 1px line geometry instead of relying on later cascade overrides over duplicate definitions.
+- Reduced `admin-unified.css`, `workspace.css`, and `ops-enhancements.css` to current page/domain layout rules rather than competing generic component definitions.
+- Removed the stale `ui-polish.css` runtime import so old Contact identity and sub-12px overrides no longer participate in the cascade.
+- Research Home study entries now read as rows inside one shared surface separated by the standard 1px divider instead of one rounded bordered card per study.
+- Schedule session selection now uses divider rows inside one surface instead of a grid of rounded mini-cards; session numbers are plain metadata rather than circular badges.
+- Removed visually redundant Schedule helper lines where the selected participant/session, assignment state, grid title, or confirmation action already communicates the same state.
+- Converted schedule coordination/change/blocking notices from nested rounded boxes into inline divider-separated context.
+- Standardized Schedule legend/cell/current metadata to the 12px metadata scale and reduced explicit chosen-slot outline from 3px to 2px.
+- Corrected confirmation-bar button styling to target the actual shared `.aui-button` component.
+- Reduced automatic schedule-message labeling in Contact to quiet metadata instead of another pill and hid the redundant Form date-count microcopy.
+
+### Files / objects
+- `src/app/admin-foundation.css`
+- `src/app/admin-unified.css`
+- `src/app/workspace.css`
+- `src/app/ops-enhancements.css`
+- `src/app/schedule-planner.css`
+- `src/app/layout.tsx`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no database schema, trigger, RPC, or RLS behavior changed
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: ClawMail and schedule-notify contracts unchanged
+
+### Application deployment
+- Deployment ID: not deployed yet
+- Production commit: unchanged at `dfb8a7796b90bce663a8e48fcf90296cd1857ad0`
+
+### Verification
+- `[PASS]` atomic CSS/layout source commit created on the visual-consistency work branch without changing application behavior code.
+- `[PASS]` audit confirmed the main residual problem was duplicate CSS ownership/high-specificity page overrides rather than missing shared React primitives.
+- `[NOT RUN]` exact Vercel production build and authenticated researcher visual E2E; rollout verification follows this ledger checkpoint.
+
+### Notes / follow-up
+- `ui-polish.css` remains an unimported legacy file for now; it no longer affects runtime. It can be deleted later with other dead CSS after dependency review.
+- `globals.css` remains the legacy/public baseline; authenticated researcher generic component ownership is `admin-foundation.css`.
+
+---
+
 ## CHANGE-20260817-017 — Complete shared admin primitive migration across researcher pages
 
 - Time: 2026-08-17 20:52 KST
@@ -373,11 +426,13 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Status: production-deployed
 
 ### What changed
-- Contact now loads current study assignments together with participants and message threads.
-- When a matched participant is selected, the conversation surface shows a compact `일정` section directly below the participant header.
-- Each availability/session field is represented by one plain row: session name, current confirmed/completed/no-show time or a compact preview of submitted candidate slots, and a semantic status badge.
-- Unscheduled candidate previews are ordered by submitted preference rank, show at most three concrete slots, and collapse remaining choices to `+N` to avoid visual overload.
-- The context uses horizontal dividers inside the existing conversation surface rather than adding another card, colored side rail, or ornamental container.
+- Contact now loads current-study assignments with participants and contact threads.
+- the selected matched participant's conversation shows one inline `일정` section
+- every configured session is one compact row: session name, current assignment time or submitted availability preview, semantic status
+- unassigned availability is ordered by preference rank
+- at most three candidate slots are displayed; additional slots collapse to `+N`
+- the detailed timetable remains in Schedule via `일정 보기`
+- the context is separated with normal horizontal dividers inside the existing conversation surface; no nested card or colored side rail was added
 
 ### Files / objects
 - `src/components/ContactManager.tsx`
@@ -511,7 +566,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Selecting a participant in any of those views updates the shared participant context.
 - Applicant detail now provides `일정 조율하기` and `연락하기` actions.
 - Schedule keeps the same participant and provides a direct `이 참가자에게 연락` action.
-- Contact keeps the same participant and provides `일정에서 보기` and `신청 내용` actions.
+- Contact keeps the same participant and provides `일정 보기` and `신청 내용` actions.
 - Unmatched inquiry selection clears participant context so an unrelated applicant is not silently carried forward.
 
 ### Files / objects
@@ -597,9 +652,9 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ### What changed
 - Added the previously live-only `vercel-control` Edge Function source to GitHub under `supabase/functions/vercel-control/index.ts`.
-- Added deterministic snapshot support through `codeload.github.com` when the deploy manifest includes an exact `commitSha`.
+- Added deterministic exact-SHA snapshot download through `codeload.github.com` when deploy manifest contains `commitSha`.
 - Exact-SHA codeload deployments avoid the low unauthenticated GitHub REST API rate limit on shared Supabase egress IPs while preserving deterministic source selection.
-- Existing GitHub REST snapshot behavior remains available when no explicit commit SHA is provided.
+- Existing GitHub REST snapshot behavior remains available when no explicit commit SHA is supplied.
 - Deployment state records `snapshotSource` so future handoffs can distinguish `github-codeload` from `github-api`.
 
 ### Files / objects
