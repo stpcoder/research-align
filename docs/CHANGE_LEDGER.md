@@ -140,7 +140,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: admin-ui / css / visual-system
 - Source commit: `8c4a7872f24b73410f0650ba064cc7a1c90c27e3`
 - Branch: `work/20260817-admin-design-system`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Extended the final-loaded admin foundation so Home, Form, Schedule, Contact, and participant-management surfaces resolve to the same shared border, divider, typography, selection, control, and grid-line tokens even where legacy class names remain.
@@ -169,13 +169,15 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: none
 
 ### Application deployment
-- Deployment ID: not deployed; work branch only
-- Production commit: unchanged at `a077cb8f0164df9a979cf6f7347e10b0917978dc`
+- Deployment ID: `dpl_ArkQh4QUyjMG1ehnrR99WrAcVnhG`
+- Production commit: `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2`
 
 ### Verification
 - `[PASS]` cleanup was committed atomically after CHANGE-015 was ledgered.
 - `[PASS]` specialized timetable/blackout controls retain task-specific layout/state colors while their line thickness, font scale, and base geometry resolve to the same shared tokens.
-- `[NOT RUN]` local build unavailable in connector-only mode; final branch integration/build verification follows.
+- `[PASS]` deploy-control job `6dc462a6-cc4a-41af-8b6e-aa499d047fa2` / request `124` built the combined design-system branch as READY deployment `dpl_ArkQh4QUyjMG1ehnrR99WrAcVnhG`.
+- `[PASS]` exact production SHA for that rollout was `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2`; the current later production also contains this change.
+- `[NOT RUN]` authenticated researcher visual E2E was unavailable.
 
 ### Notes / follow-up
 - Domain-specific schedule cells and message bubbles remain specialized components by design; generic buttons, controls, lists, rows, surfaces, and typography are governed by the shared foundation.
@@ -189,7 +191,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: contact / admin-ui
 - Source commit: `6a80a9f08e3aa97fcbf0f97c17dc782b0317c212`
 - Branch: `work/20260817-admin-design-system`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Replaced Contact's page-specific header, card/list controls, search input, navigation buttons, composer inputs, and schedule rows with the same shared `AdminPageHeader`, `AdminSurface`, `AdminSplitView`, `AdminListItem`, `AdminButton`, `AdminInput`, `AdminTextarea`, `AdminField`, `AdminActions`, `AdminDivider`, and `AdminDataRow` primitives used by other researcher work areas.
@@ -211,16 +213,17 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: provider contract unchanged
 
 ### Application deployment
-- Deployment ID: not deployed; work branch only
-- Production commit: unchanged at `a077cb8f0164df9a979cf6f7347e10b0917978dc`
+- Deployment ID: `dpl_ArkQh4QUyjMG1ehnrR99WrAcVnhG`
+- Production commit: `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2`
 
 ### Verification
 - `[PASS]` source commit created after CHANGE-014 was ledgered, preserving the one-change-at-a-time sequence.
-- `[PASS]` Contact now consumes the shared primitives rather than duplicating equivalent list/control/row components.
-- `[NOT RUN]` local Next.js build unavailable in connector-only mode; work branch remains isolated from production until final build verification.
+- `[PASS]` Contact consumes the shared primitives rather than duplicating equivalent list/control/row components.
+- `[PASS]` the combined admin design-system branch reached READY as `dpl_ArkQh4QUyjMG1ehnrR99WrAcVnhG` through job `6dc462a6-cc4a-41af-8b6e-aa499d047fa2`; this source commit is an ancestor of deployed SHA `fdb0e31...`.
+- `[NOT RUN]` authenticated researcher Contact visual/click E2E was unavailable.
 
 ### Notes / follow-up
-- The final work-branch checkpoint removes legacy CSS conflicts and ensures the remaining home/form/schedule surfaces resolve to the same foundation tokens before integration.
+- The current later production continues to include this migration; generic Contact controls should continue using the shared admin primitives.
 
 ---
 
@@ -231,7 +234,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: participant / admin-ui
 - Source commit: `8c2c6578b3175a9a170677768f647d639c6d7acf`
 - Branch: `work/20260817-admin-design-system`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Replaced the participant-page search control and all participant-page action buttons with shared `AdminInput`, `AdminButton`, and `AdminActions` primitives.
@@ -254,16 +257,17 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: none
 
 ### Application deployment
-- Deployment ID: not deployed; work branch only
-- Production commit: unchanged at `a077cb8f0164df9a979cf6f7347e10b0917978dc`
+- Deployment ID: `dpl_ArkQh4QUyjMG1ehnrR99WrAcVnhG`
+- Production commit: `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2`
 
 ### Verification
 - `[PASS]` source commit created on the design-system work branch after CHANGE-013 was ledgered.
 - `[PASS]` the migration uses only shared primitives introduced in CHANGE-013 and removes page-local decorative elements without changing queries or state transitions.
-- `[NOT RUN]` local Next.js build unavailable in connector-only mode; the work branch will be build-verified before integration.
+- `[PASS]` the combined admin design-system branch reached READY as `dpl_ArkQh4QUyjMG1ehnrR99WrAcVnhG` through job `6dc462a6-cc4a-41af-8b6e-aa499d047fa2`; this source commit is an ancestor of deployed SHA `fdb0e31...`.
+- `[NOT RUN]` authenticated participant-admin visual E2E was unavailable.
 
 ### Notes / follow-up
-- The next checkpoint migrates the remaining researcher work areas and removes remaining page-local control/row patterns before integration to main.
+- The current later production continues to include this migration.
 
 ---
 
@@ -274,7 +278,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: admin-ui / design-system
 - Source commit: `6c35064df79111d37fc1f3c48abd24f06ed6f3be`
 - Branch: `work/20260817-admin-design-system`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Added `src/app/admin-foundation.css` as the final-loaded source of truth for researcher/admin design tokens: typography scale, 1px divider/border system, surface radius/padding, control geometry, button variants, selected-row treatment, and shared table/data-row geometry.
@@ -299,16 +303,17 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: none
 
 ### Application deployment
-- Deployment ID: not deployed; work branch only
-- Production commit: unchanged at `a077cb8f0164df9a979cf6f7347e10b0917978dc`
+- Deployment ID: `dpl_ArkQh4QUyjMG1ehnrR99WrAcVnhG`
+- Production commit: `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2`
 
 ### Verification
-- `[PASS]` atomic foundation source commit created on `work/20260817-admin-design-system` from current main baseline `1244212fd33630bbf971fe6f3bb21961d82c6b72`.
-- `[PASS]` compatibility layer intentionally preserves existing class names while centralizing their shared geometry.
-- `[NOT RUN]` local Next.js build is unavailable in connector-only mode; production remains unchanged while page migration continues on the work branch.
+- `[PASS]` atomic foundation source commit created on `work/20260817-admin-design-system` from baseline `1244212fd33630bbf971fe6f3bb21961d82c6b72`.
+- `[PASS]` compatibility layer preserves existing class names while centralizing shared geometry.
+- `[PASS]` the combined admin design-system branch reached READY as `dpl_ArkQh4QUyjMG1ehnrR99WrAcVnhG` through job `6dc462a6-cc4a-41af-8b6e-aa499d047fa2`; this source commit is an ancestor of deployed SHA `fdb0e31...`.
+- `[NOT RUN]` authenticated researcher visual E2E was unavailable.
 
 ### Notes / follow-up
-- The next checkpoint migrates existing researcher pages toward these primitives and removes page-specific microcopy/box/border overrides before the work branch is integrated into `main`.
+- This foundation is now further extended by CHANGE-017; new generic researcher UI must add/reuse shared primitives rather than creating page-local equivalents.
 
 ---
 
