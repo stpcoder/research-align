@@ -77,6 +77,59 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-017 — Complete shared admin primitive migration across researcher pages
+
+- Time: 2026-08-17 20:52 KST
+- Type: refactor
+- Area: admin-ui / design-system / home / form / schedule
+- Source commit: `a1741845de378eeef85308e74298d34850acefb3`
+- Branch: `work/20260817-admin-primitives-complete`
+- Status: committed
+
+### What changed
+- Completed the migration from page-local lookalike controls to shared React admin primitives across the remaining researcher Home, Form, and Schedule work areas.
+- Expanded `AdminUI.tsx` with reusable link buttons, icon buttons, section headers, metric strips, menu items, and action rows so generic interactions no longer need page-specific button/list implementations.
+- Centralized the admin font family and explicit 1px line-width token in `admin-foundation.css`; buttons, inputs, dropdowns, surfaces, rows, tables, horizontal dividers, vertical dividers, selected states, and specialized timetable grid lines now resolve to the same tokens.
+- Migrated Research Home to shared page header, buttons, status badges, metric strip, section header, surface, text actions, link button, and agenda action rows. Per-study operational counters are now quiet text actions instead of four small box controls.
+- Moved the `published -> 모집 중지 -> closed -> 삭제` lifecycle into canonical `ResearchHome.tsx` and removed the fragile build-time string patch for that behavior.
+- Migrated Form Builder controls to shared fields, inputs, selects, textareas, buttons, icon buttons, and menu items; removed routine `저장됨`, field-number microcopy, repeated section explanations, date-pill boxes, boxed required-state copy, and redundant option descriptions.
+- Moved the Form Builder publish-save callback into canonical `FormBuilderUnified.tsx`, so the prebuild script no longer mutates Form Builder source to inject it.
+- Migrated Schedule search/filter controls, page/panel actions, date navigation, coordination actions, assignment actions, and confirmation actions to the same shared primitives. Domain-specific session selectors and timetable cells remain specialized because they encode scheduling state, but their typography and line system still come from shared tokens.
+- Preserved scheduling, contact, form persistence, recruitment lifecycle, and notification behavior while reducing build-time UI source mutation to the remaining top-level StudyWorkspace/page compatibility layer and date-window safety patch.
+
+### Files / objects
+- `src/components/admin/AdminUI.tsx`
+- `src/app/admin-foundation.css`
+- `src/components/ResearchHome.tsx`
+- `src/components/FormBuilderUnified.tsx`
+- `src/components/ScheduleUnified.tsx`
+- `src/app/form-controls.css`
+- `scripts/prebuild-ui-copy.mjs`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no database schema, trigger, RPC, or RLS behavior changed
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: ClawMail and schedule-notify contracts unchanged
+
+### Application deployment
+- Deployment ID: not deployed yet
+- Production commit: currently unchanged at `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2`
+
+### Verification
+- `[PASS]` final source was squashed into one commit directly on parent `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2`; intermediate work-branch checkpoint history is not part of the final branch history.
+- `[PASS]` compare shows exactly one source commit and seven intended files changed from the current production baseline.
+- `[PASS]` generic controls now have a shared component owner; specialized schedule/blackout grid cells remain domain-specific by design while sharing font/line tokens.
+- `[NOT RUN]` local Next.js build is unavailable in connector-only mode; exact main/production build verification follows after this ledger checkpoint.
+
+### Notes / follow-up
+- After build verification, update this same entry with the exact Vercel deployment and production SHA. Authenticated visual E2E remains separate because no researcher-authenticated browser session is available in this environment.
+
+---
+
 ## CHANGE-20260817-016 — Remove legacy visual conflicts and box/microcopy drift
 
 - Time: 2026-08-17 21:00 KST
