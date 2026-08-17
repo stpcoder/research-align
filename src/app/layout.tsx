@@ -7,7 +7,6 @@ import './form-controls.css'
 import './schedule-planner.css'
 import './participant-booking.css'
 import './public-inquiry.css'
-import './ui-polish.css'
 import './ops-enhancements.css'
 import './admin-foundation.css'
 
