@@ -84,7 +84,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: deploy / vercel-control
 - Source commit: `69bc18301e6964c04dfccefc40a0c88a7365a0b7`
 - Branch: `main`
-- Status: committed
+- Status: verified
 
 ### What changed
 - Reworked the codeload tar parser into two passes: first collect regular-file entries, then determine and strip the common archive root directory.
@@ -102,18 +102,20 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ### Edge / provider
 - Function/provider: `vercel-control`
-- Deployment/auth state: source committed; live v4 deployment pending; `verify_jwt=false` with existing custom high-entropy `controlKey`
+- Deployment/auth state: live version 4 ACTIVE; `verify_jwt=false` with existing custom high-entropy `controlKey`
 
 ### Application deployment
-- Deployment ID: previous failed test `dpl_2x8TvtPSYyDCvZXT3mcx3P2PhJrk`; corrected retry pending
-- Production commit: unchanged until corrected retry succeeds
+- Deployment ID: `dpl_namA9eDG4cEDWMDEqhwx8exTLxXZ`
+- Production commit: `79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`
 
 ### Verification
-- `[PASS]` source commit `69bc18301e6964c04dfccefc40a0c88a7365a0b7` created after the v3 codeload deployment reached Vercel but failed with `missing_pages_app`.
-- `[PENDING]` deploy Edge Function v4 and retry an exact-SHA production deployment.
+- `[PASS]` source commit `69bc18301e6964c04dfccefc40a0c88a7365a0b7` created after v3 codeload reached Vercel but failed with `missing_pages_app`.
+- `[PASS]` Edge Function v4 deployed ACTIVE with corrected parser.
+- `[PASS]` exact-SHA codeload deployment completed READY as `dpl_namA9eDG4cEDWMDEqhwx8exTLxXZ`.
+- `[PASS]` `deploy_control_state.details.snapshotSource = github-codeload` and `commitSha = 79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`.
 
 ### Notes / follow-up
-- The package.json guard should fail inside deploy-control before creating a Vercel deployment if future archive-root parsing regresses.
+- The package.json guard now fails inside deploy-control before creating a Vercel deployment if archive-root parsing regresses.
 
 ---
 
@@ -124,14 +126,14 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: deploy / vercel-control
 - Source commit: `37d1be727d73824abd7d3b10b47023a78b8da5b6`
 - Branch: `main`
-- Status: committed
+- Status: verified
 
 ### What changed
 - Added the previously live-only `vercel-control` Edge Function source to GitHub under `supabase/functions/vercel-control/index.ts`.
 - Added deterministic snapshot support through `codeload.github.com` when the deploy manifest includes an exact `commitSha`.
 - Exact-SHA codeload deployments avoid the low unauthenticated GitHub REST API rate limit on shared Supabase egress IPs while preserving deterministic source selection.
 - Existing GitHub REST snapshot behavior remains available when no explicit commit SHA is provided.
-- Deployment state now records `snapshotSource` so future handoffs can distinguish `github-codeload` from `github-api`.
+- Deployment state records `snapshotSource` so future handoffs can distinguish `github-codeload` from `github-api`.
 
 ### Files / objects
 - `supabase/functions/vercel-control/index.ts`
@@ -144,18 +146,20 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ### Edge / provider
 - Function/provider: `vercel-control`
-- Deployment/auth state: source committed; live deployment pending; must remain `verify_jwt=false` because the function enforces its separate high-entropy `controlKey`
+- Deployment/auth state: fallback first deployed in v3; current live v4 ACTIVE includes this fallback plus CHANGE-007 parser correction; `verify_jwt=false` with custom `controlKey`
 
 ### Application deployment
-- Deployment ID: not applicable to this ops change yet
-- Production commit: unchanged until retry succeeds
+- Deployment ID: `dpl_namA9eDG4cEDWMDEqhwx8exTLxXZ`
+- Production commit: `79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`
 
 ### Verification
-- `[PASS]` source-controlled Edge Function commit created after observing pg_net request `119` fail with GitHub REST `API rate limit exceeded`.
-- `[PENDING]` deploy Edge Function and retry application deployment with an exact `manifest.commitSha`.
+- `[PASS]` pg_net request `119` established the original failure mode: unauthenticated GitHub REST `API rate limit exceeded`.
+- `[PASS]` exact-SHA codeload path bypassed the rate limit and created Vercel deployments.
+- `[FAIL then fixed by CHANGE-007]` v3 codeload parser produced `missing_pages_app` on `dpl_2x8TvtPSYyDCvZXT3mcx3P2PhJrk`.
+- `[PASS]` v4 corrected path produced READY deployment `dpl_namA9eDG4cEDWMDEqhwx8exTLxXZ`.
 
 ### Notes / follow-up
-- A long-lived authenticated `github_token` would also avoid REST rate limits, but is not required for exact-SHA codeload snapshot deployments.
+- A long-lived authenticated `github_token` would also avoid REST rate limits, but exact-SHA codeload now provides a token-free deterministic fallback for this public repo.
 
 ---
 
@@ -166,11 +170,11 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: form / study-lifecycle
 - Source commit: `1bde332ad88126b2eceb5361243c392be960466e`
 - Branch: `main`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Exposed the mounted unified Form Builder's existing `save()` operation to the StudyWorkspace through a transient browser callback.
-- `모집 시작` and `모집 재개` now detect unsaved form changes, save them first, wait for the dirty state to clear, and only then change the study status to `published`.
+- `모집 시작` and `모집 재개` detect unsaved form changes, save them first, wait for the dirty state to clear, and only then change the study status to `published`.
 - If form validation or persistence fails and the dirty state remains, publishing is aborted instead of exposing stale saved data.
 - `모집 중지` does not force an unrelated save; autosave applies only when entering the published state.
 
@@ -188,16 +192,16 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: none
 
 ### Application deployment
-- Deployment ID: not deployed yet
-- Production commit: unchanged (`dd5eab06280f78f37d5926f4d940ef697c04d4b0`)
+- Deployment ID: `dpl_namA9eDG4cEDWMDEqhwx8exTLxXZ`
+- Production commit: `79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`
 
 ### Verification
 - `[PASS]` source commit created on `main` with publish-before-save orchestration.
-- `[PENDING]` Next.js production build will be verified by the production deployment control plane.
-- `[PENDING]` Authenticated admin click-flow E2E requires an authenticated researcher session and will be recorded separately if available.
+- `[PASS]` Vercel production build completed READY with the prebuild transformation applied.
+- `[NOT RUN]` authenticated researcher click-flow E2E was not available in this connector-only session; behavior is deployed but the actual authenticated button sequence was not browser-clicked here.
 
 ### Notes / follow-up
-- This uses the existing build-time UI transformation layer to avoid introducing a second form state implementation; removing that layer remains separate technical debt.
+- This uses the existing build-time UI transformation layer; removing that layer remains separate technical debt.
 
 ---
 
@@ -208,11 +212,11 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: study-lifecycle / admin-home
 - Source commit: `19a3d9dbd51040d55d9617485f212f4597231447`
 - Branch: `main`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Changed the admin lifecycle so stopping a published study moves it to `closed` instead of back to `draft`.
-- On the researcher home, a published study now shows `모집 중지` in the destructive-action position; after the study is stopped, that action becomes `삭제`.
+- On the researcher home, a published study shows `모집 중지` in the destructive-action position; after the study is stopped, that action becomes `삭제`.
 - Added a defensive guard so a published study cannot be permanently deleted until recruitment has been stopped.
 - Closed studies show `모집 재개` in the workspace rather than being indistinguishable from a never-published draft.
 
@@ -223,19 +227,20 @@ If a session terminates between the source commit and the ledger bookkeeping com
 ### Database
 - Migration: none
 - Production applied: not-applicable
-- Live verification: existing `studies.status` already supports `draft | published | closed`
+- Live verification: existing `studies.status` supports `draft | published | closed`
 
 ### Edge / provider
 - Function/provider: none
 - Deployment/auth state: none
 
 ### Application deployment
-- Deployment ID: not deployed yet
-- Production commit: unchanged (`dd5eab06280f78f37d5926f4d940ef697c04d4b0`)
+- Deployment ID: `dpl_namA9eDG4cEDWMDEqhwx8exTLxXZ`
+- Production commit: `79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`
 
 ### Verification
 - `[PASS]` source commit created on `main` with the stop-before-delete build transformation.
-- `[PENDING]` Next.js production build and authenticated admin E2E will be verified during the deployment pass after the requested publish-autosave fix is also committed.
+- `[PASS]` Vercel production build completed READY with the transformation applied.
+- `[NOT RUN]` authenticated researcher click-flow E2E was not available in this connector-only session; the stop/delete sequence was not browser-clicked here.
 
 ### Notes / follow-up
 - This change intentionally uses the repository's existing build-time UI transformation layer; eliminating that layer remains separate technical debt.
@@ -278,16 +283,14 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ### Application deployment
 - Deployment ID: not deployed
-- Production commit: unchanged (`dd5eab06280f78f37d5926f4d940ef697c04d4b0`)
+- Production commit: unchanged at the time of this process-only change
 
 ### Verification
 - `[PASS]` four protocol files were committed atomically as source commit `4fcea25458897f5ddd5a86f56c661d45f1b7e91f` and `main` was fast-forwarded to that commit.
-- `[PASS]` live `deploy_control_state` remained `READY` on `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`, runtime commit `dd5eab06280f78f37d5926f4d940ef697c04d4b0`.
-- `[PASS]` current-session shell clone attempt demonstrated the intended fallback condition: direct Git failed with `Could not resolve host: github.com`, while the GitHub connector remained usable; the session therefore operated as `connector-only` for repository writes.
+- `[PASS]` current-session shell clone attempt demonstrated the intended fallback condition: direct Git failed with `Could not resolve host: github.com`, while the GitHub connector remained usable.
 
 ### Notes / follow-up
 - The protocol intentionally does not promise physical `/mnt/data` persistence across conversations; it makes a surviving checkout reusable only after verification and otherwise reconstructs state from durable GitHub/live infrastructure.
-- This ledger bookkeeping commit is exempt from its own ledger entry by rule.
 
 ---
 
@@ -323,7 +326,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ### Application deployment
 - Deployment ID: not deployed
-- Production commit: unchanged (`dd5eab06280f78f37d5926f4d940ef697c04d4b0`)
+- Production commit: unchanged at the time of this process-only change
 
 ### Verification
 - `[PASS]` policy/source commit created as `d8b63b1ef32de06afacea97208910e889fdf4a3f` and fast-forwarded to `main`.
@@ -360,7 +363,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ### Application deployment
 - Deployment ID: not deployed
-- Production commit: unchanged (`dd5eab06280f78f37d5926f4d940ef697c04d4b0`)
+- Production commit: unchanged at the time of this process-only change
 
 ### Verification
 - `[PASS]` GitHub `main` advanced to `2e475a880495575de41376a3fde786ae7f749abd` with this file added.
