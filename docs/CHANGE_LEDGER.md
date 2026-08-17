@@ -77,6 +77,49 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-009 — Clarify schedule change and post-session action hierarchy
+
+- Time: 2026-08-17 18:43 KST
+- Type: feat
+- Area: schedule / safety / action hierarchy
+- Source commit: `f78ff1c4a1a6bfb9830be11f5086d8037cd59b79`
+- Branch: `main`
+- Status: committed
+
+### What changed
+- Added an explicit `시간 변경` mode for already-confirmed assignments. Researchers can no longer accidentally replace a confirmed time simply by clicking another grid cell.
+- The existing assignment remains intact until a replacement slot is selected and the researcher explicitly confirms the change.
+- Confirmation CTAs now describe the email side effect: `일정 확정하고 안내 보내기` and `일정 변경하고 안내 보내기`.
+- `완료 처리` and `불참 처리` are shown only after the scheduled session end time, instead of competing with normal future-schedule actions.
+- `일정 취소` now uses destructive button semantics.
+- A failed notification retry becomes the primary recovery action, while normal unsent mail remains secondary.
+- The timetable explains when change mode is required and shows a dedicated change-mode notice.
+
+### Files / objects
+- `src/components/ScheduleUnified.tsx`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no scheduling invariant/schema change; existing assignment upsert and DB overlap trigger remain unchanged
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: schedule-notify contract unchanged
+
+### Application deployment
+- Deployment ID: not deployed yet
+- Production commit: currently unchanged (`79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`)
+
+### Verification
+- `[PASS]` source commit created on `main` with explicit change mode and time-aware post-session actions.
+- `[PENDING]` production Next.js build and authenticated researcher browser workflow will be verified after the remaining P0 coordination UX change is committed.
+
+### Notes / follow-up
+- This change deliberately does not add a new assignment status; it clarifies interaction around the existing confirmed/completed/no_show/cancelled lifecycle.
+
+---
+
 ## CHANGE-20260817-008 — Preserve participant context across applicant, schedule, and contact tabs
 
 - Time: 2026-08-17 18:39 KST
