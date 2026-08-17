@@ -84,7 +84,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: schedule / contact / coordination
 - Source commit: `70af27d5fb1feafc748749ecf630c17116027f82`
 - Branch: `main`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Replaced the implementation-oriented `직접 협의한 시간 지정` entry point with researcher-facing `다른 시간 조율하기`.
@@ -108,12 +108,14 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: schedule-notify and ClawMail contracts unchanged
 
 ### Application deployment
-- Deployment ID: not deployed yet
-- Production commit: currently unchanged (`79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`)
+- Deployment ID: `dpl_G74DQabUEgvmCQsxXezPdbuhs7ef`
+- Production commit: `a68c2439c66ecd663466a746adb37f085f5c57c0`
 
 ### Verification
 - `[PASS]` source commit created on `main` with the new coordination decision flow.
-- `[PENDING]` production Next.js build and authenticated researcher browser workflow will be verified in the rollout pass.
+- `[PASS]` exact-SHA Vercel production build completed READY; deploy-control job `f89494c6-a62b-4d73-bc31-48fbb36da4bd` succeeded.
+- `[PASS]` `deploy_control_state` records `commitSha = a68c2439c66ecd663466a746adb37f085f5c57c0` and `snapshotSource = github-codeload`.
+- `[NOT RUN]` authenticated researcher browser click-flow was unavailable in this connector-only session.
 
 ### Notes / follow-up
 - This is intentionally not a proposed-time state machine yet; a future P2 can add explicit schedule proposals and participant acceptance tracking.
@@ -127,7 +129,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: schedule / safety / action hierarchy
 - Source commit: `f78ff1c4a1a6bfb9830be11f5086d8037cd59b79`
 - Branch: `main`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Added an explicit `시간 변경` mode for already-confirmed assignments. Researchers can no longer accidentally replace a confirmed time simply by clicking another grid cell.
@@ -151,12 +153,13 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: schedule-notify contract unchanged
 
 ### Application deployment
-- Deployment ID: not deployed yet
-- Production commit: currently unchanged (`79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`)
+- Deployment ID: `dpl_G74DQabUEgvmCQsxXezPdbuhs7ef`
+- Production commit: `a68c2439c66ecd663466a746adb37f085f5c57c0`
 
 ### Verification
 - `[PASS]` source commit created on `main` with explicit change mode and time-aware post-session actions.
-- `[PENDING]` production Next.js build and authenticated researcher browser workflow will be verified after the remaining P0 coordination UX change is committed.
+- `[PASS]` exact-SHA Vercel production build completed READY with this source as an ancestor of deployed commit `a68c2439...`.
+- `[NOT RUN]` authenticated researcher browser click-flow was unavailable in this connector-only session.
 
 ### Notes / follow-up
 - This change deliberately does not add a new assignment status; it clarifies interaction around the existing confirmed/completed/no_show/cancelled lifecycle.
@@ -170,7 +173,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: participant-workflow / navigation
 - Source commit: `c9f20ca7d63fc1e734e597119113fdfdd93f2ac2`
 - Branch: `main`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Added a shared researcher navigation helper that stores the active participant response ID in `?participant=` and dispatches an internal StudyWorkspace navigation event.
@@ -198,12 +201,13 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: none
 
 ### Application deployment
-- Deployment ID: not deployed yet
-- Production commit: currently unchanged (`79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`)
+- Deployment ID: `dpl_G74DQabUEgvmCQsxXezPdbuhs7ef`
+- Production commit: `a68c2439c66ecd663466a746adb37f085f5c57c0`
 
 ### Verification
 - `[PASS]` atomic source commit created on `main` for shared participant context and cross-tab CTAs.
-- `[PENDING]` production Next.js build and authenticated researcher browser workflow will be verified after the remaining P0 UX changes are committed.
+- `[PASS]` exact-SHA Vercel production build completed READY with the build-time StudyWorkspace navigation event patch applied.
+- `[NOT RUN]` authenticated researcher cross-tab click-flow was unavailable in this connector-only session.
 
 ### Notes / follow-up
 - Participant context is intentionally URL-backed so normal top-tab switching and page reloads can restore the same participant without adding a new database concept.
@@ -440,7 +444,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Made `docs/CHANGE_LEDGER.md` mandatory reading and mandatory per-change bookkeeping.
 - Required every meaningful source commit to receive exactly one granular ledger entry before the next independent logical change begins.
 - Added recovery rules for commits that exist without a ledger entry after an interrupted session.
-- Extended the handoff template so every session maps source commits to Change IDs and records DB/Edge/deployment verification by Change ID.
+- Extended the handoff template so every session maps source commits to Change IDs and records DB/Edge/deployment/verification by Change ID.
 
 ### Files / objects
 - `AGENTS.md`
