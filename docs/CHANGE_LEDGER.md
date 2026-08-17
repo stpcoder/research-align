@@ -77,6 +77,50 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-012 — Simplify Contact chrome and remove redundant operational copy
+
+- Time: 2026-08-17 19:05 KST
+- Type: feat
+- Area: contact / UX / visual hierarchy
+- Source commit: `283065e65869da26b174470dc76edd8563a20aeb`
+- Branch: `main`
+- Status: committed
+
+### What changed
+- Replaced the multi-line mailbox status box (`connected/missing` label + address/explanation + status dot) with a compact utility row showing only the research mailbox address, last sync time when useful, and one mailbox action.
+- Removed duplicated inquiry state wording such as a `대기` pill plus separate `답변 필요/응대 중` text; pending state is now represented once as `답변 필요`.
+- Removed redundant participant `새 문의` metadata when the same pending state is already visible as a badge.
+- Shortened source and navigation labels (`신청자 문의`, `신청 전 문의`, `일정 보기`) and reduced verbose empty-state copy.
+- Removed provider-return status text from successful sends and the duplicate recipient email from the composer footer.
+- Preserved the compact schedule context from CHANGE-011 without adding cards, colored side rails, or left-edge-only state decoration.
+
+### Files / objects
+- `src/components/ContactManager.tsx`
+- `src/app/ops-enhancements.css`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no schema change
+
+### Edge / provider
+- Function/provider: ClawMail display only
+- Deployment/auth state: provider/API contract unchanged
+
+### Application deployment
+- Deployment ID: not deployed yet
+- Production commit: currently unchanged (`a68c2439c66ecd663466a746adb37f085f5c57c0`)
+
+### Verification
+- `[PASS]` source commit created atomically with copy reduction and compact mailbox/composer styling.
+- `[PASS]` implementation follows `ADMIN_DESIGN_SYSTEM.md`: hierarchy before decoration, no nested contact card, no left-edge-only state indicator, and one clear primary composer action.
+- `[PENDING]` production Next.js build and authenticated Contact workflow verification.
+
+### Notes / follow-up
+- This change intentionally removes information rather than adding new interaction states; technical provider state remains available in the underlying data/functions, not repeated in primary UI.
+
+---
+
 ## CHANGE-20260817-011 — Show compact participant schedule context inside Contact
 
 - Time: 2026-08-17 19:03 KST
@@ -352,7 +396,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Status: production-deployed
 
 ### What changed
-- Exposed the mounted unified Form Builder's existing `save()` operation to the StudyWorkspace through a transient browser callback.
+- Exposed the mounted unified Form Builder's existing `save()` operation to the workspace while mounted.
 - `모집 시작` and `모집 재개` detect unsaved form changes, save them first, wait for the dirty state to clear, and only then change the study status to `published`.
 - If form validation or persistence fails and the dirty state remains, publishing is aborted instead of exposing stale saved data.
 - `모집 중지` does not force an unrelated save; autosave applies only when entering the published state.
