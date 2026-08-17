@@ -84,7 +84,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: admin-ui / design-system / home / form / schedule
 - Source commit: `a1741845de378eeef85308e74298d34850acefb3`
 - Branch: `work/20260817-admin-primitives-complete`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Completed the migration from page-local lookalike controls to shared React admin primitives across the remaining researcher Home, Form, and Schedule work areas.
@@ -116,17 +116,20 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: ClawMail and schedule-notify contracts unchanged
 
 ### Application deployment
-- Deployment ID: not deployed yet
-- Production commit: currently unchanged at `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2`
+- Deployment ID: `dpl_HcfM9jkpgDoSmXpfwDu4VCpgCrJv`
+- Production commit: `dfb8a7796b90bce663a8e48fcf90296cd1857ad0`
 
 ### Verification
 - `[PASS]` final source was squashed into one commit directly on parent `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2`; intermediate work-branch checkpoint history is not part of the final branch history.
-- `[PASS]` compare shows exactly one source commit and seven intended files changed from the current production baseline.
+- `[PASS]` compare shows exactly one source commit and seven intended files changed from the prior production baseline.
 - `[PASS]` generic controls now have a shared component owner; specialized schedule/blackout grid cells remain domain-specific by design while sharing font/line tokens.
-- `[NOT RUN]` local Next.js build is unavailable in connector-only mode; exact main/production build verification follows after this ledger checkpoint.
+- `[PASS]` deploy-control job `3e3d7508-73d9-4eb6-a2e2-cfe3557a9280` succeeded; request `125` produced READY Vercel deployment `dpl_HcfM9jkpgDoSmXpfwDu4VCpgCrJv`.
+- `[PASS]` `deploy_control_state.status = READY`, `commitSha = dfb8a7796b90bce663a8e48fcf90296cd1857ad0`, and `snapshotSource = github-codeload`.
+- `[PASS]` the production Next.js/TypeScript build accepted the shared Home/Form/Schedule primitive migration and reduced prebuild mutation.
+- `[NOT RUN]` authenticated researcher visual/click E2E is unavailable in this connector-only session.
 
 ### Notes / follow-up
-- After build verification, update this same entry with the exact Vercel deployment and production SHA. Authenticated visual E2E remains separate because no researcher-authenticated browser session is available in this environment.
+- Future generic admin controls should be added to `AdminUI.tsx` and tokenized in `admin-foundation.css`, not recreated per page. Domain-specific interaction surfaces may remain specialized when they encode unique behavior, but must consume the same typography, line, spacing, and semantic-state tokens.
 
 ---
 
