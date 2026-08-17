@@ -77,6 +77,48 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-015 — Migrate Contact workspace to shared admin primitives
+
+- Time: 2026-08-17 20:50 KST
+- Type: refactor
+- Area: contact / admin-ui
+- Source commit: `6a80a9f08e3aa97fcbf0f97c17dc782b0317c212`
+- Branch: `work/20260817-admin-design-system`
+- Status: committed
+
+### What changed
+- Replaced Contact's page-specific header, card/list controls, search input, navigation buttons, composer inputs, and schedule rows with the same shared `AdminPageHeader`, `AdminSurface`, `AdminSplitView`, `AdminListItem`, `AdminButton`, `AdminInput`, `AdminTextarea`, `AdminField`, `AdminActions`, `AdminDivider`, and `AdminDataRow` primitives used by other researcher work areas.
+- Inquiry and participant sidebars now use the same selected-row treatment, typography hierarchy, status badges, and line system as the applicant page instead of custom `.person` boxes.
+- The research-mailbox utility moved into the shared page-header action region, eliminating a separate page-specific status/header component.
+- Inline participant schedule context now uses shared data rows rather than a custom row implementation.
+- Kept domain-specific email message bubbles and all ClawMail/thread/participant/schedule behavior unchanged.
+
+### Files / objects
+- `src/components/ContactManager.tsx`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: contact/scheduling queries unchanged
+
+### Edge / provider
+- Function/provider: ClawMail display/client wiring only
+- Deployment/auth state: provider contract unchanged
+
+### Application deployment
+- Deployment ID: not deployed; work branch only
+- Production commit: unchanged at `a077cb8f0164df9a979cf6f7347e10b0917978dc`
+
+### Verification
+- `[PASS]` source commit created after CHANGE-014 was ledgered, preserving the one-change-at-a-time sequence.
+- `[PASS]` Contact now consumes the shared primitives rather than duplicating equivalent list/control/row components.
+- `[NOT RUN]` local Next.js build unavailable in connector-only mode; work branch remains isolated from production until final build verification.
+
+### Notes / follow-up
+- The final work-branch checkpoint removes legacy CSS conflicts and ensures the remaining home/form/schedule surfaces resolve to the same foundation tokens before integration.
+
+---
+
 ## CHANGE-20260817-014 — Migrate participant page to shared admin primitives
 
 - Time: 2026-08-17 20:40 KST
