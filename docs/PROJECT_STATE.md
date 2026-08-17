@@ -70,7 +70,8 @@ Primary current implementation surfaces:
 - `src/components/ContactManager.tsx`
 - `src/components/ParticipantForm.tsx`
 - `src/components/PublicInquiryWidget.tsx`
-- `src/components/admin/*`
+- `src/components/admin/AdminUI.tsx`
+- `src/app/admin-foundation.css`
 - `src/app/s/[slug]/page.tsx`
 - `src/lib/researcherNavigation.ts`
 - `src/lib/types.ts`
@@ -79,13 +80,40 @@ Primary current implementation surfaces:
 
 Browser code uses only publishable Supabase configuration. Provider/deployment secrets remain server-side/private.
 
+### Shared researcher UI design system
+
+Authenticated researcher pages use a shared design/component layer rather than page-local lookalike controls.
+
+Source of truth:
+
+- `src/components/admin/AdminUI.tsx` — generic React primitives
+- `src/app/admin-foundation.css` — shared font, type scale, 1px line/divider system, control geometry, surface geometry and compatibility tokens
+- `docs/ADMIN_DESIGN_SYSTEM.md` — mandatory design contract
+
+Generic controls such as buttons, link buttons, icon buttons, inputs, dropdowns, textareas, fields, page/section headers, status badges, selectable rows, menus, metrics, data rows and tables must be shared primitives. Home, Form Builder, participant management, Schedule and Contact now consume this common layer for their generic controls.
+
+Domain-specific interaction surfaces may remain specialized only when their visual structure is inseparable from unique behavior. Current examples are schedule session selectors/timetable cells, availability blackout cells, and email message bubbles. Even these specialized components consume the same typography, 1px grid-line, spacing and semantic-state tokens.
+
+Current visual constraints include:
+
+- routine metadata/helper text is 12px; 10px microcopy is not a normal UI role
+- major structural borders and horizontal/vertical dividers share the same explicit 1px token
+- no colored left rail as the sole selected/status signal
+- avoid nested cards and card-per-value UI when spacing/dividers/rows suffice
+- generic control geometry cannot be redefined in page CSS
+
 ### Build-time source rewrite warning
 
 `npm run dev` and `npm run build` first execute `scripts/prebuild-ui-copy.mjs`.
 
-The script currently mutates source before Next.js runs. It swaps legacy inline implementations in `src/app/page.tsx` for Unified components and also injects current lifecycle/navigation behavior. Therefore raw `page.tsx` alone is not canonical production behavior.
+The script still mutates the legacy top-level `src/app/page.tsx`/`StudyWorkspace` compatibility layer before Next.js runs and retains the schedule date-window safety rewrite. Therefore raw `page.tsx` alone is not yet canonical production behavior.
 
-This remains important technical debt: current behavior should eventually be moved into canonical source so builds do not mutate tracked files.
+Two important behaviors are now canonical component source rather than build-time patches:
+
+- `ResearchHome.tsx` owns the stop-before-delete lifecycle directly
+- `FormBuilderUnified.tsx` owns the publish-save callback directly
+
+Removing the remaining top-level source rewrite is still important technical debt, but the mutation surface is smaller than before.
 
 ## 4. Authentication and tenancy
 
@@ -112,6 +140,8 @@ The researcher home loads operational state across all studies owned by the curr
 - per-study operational counts
 - upcoming sessions across studies
 
+The four top-level metrics use one shared metric surface with 1px dividers rather than four independent cards. Per-study operational counters are quiet shared text actions instead of a second row of small boxes. Upcoming sessions use the shared action-row language.
+
 ### Study lifecycle and deletion
 
 Permanent study deletion exists and is protected by typing the exact study title.
@@ -126,6 +156,8 @@ published
 ```
 
 A published study cannot be permanently deleted directly. The researcher must stop recruitment first. The home card shows `모집 중지` while published and `삭제` after it is closed. A defensive delete guard also refuses a published study even if the UI is bypassed.
+
+This lifecycle now lives directly in `ResearchHome.tsx`; it is no longer injected by the prebuild rewrite.
 
 Closed studies can be reopened from the workspace with `모집 재개`.
 
@@ -161,6 +193,8 @@ Date editing supports individual dates, 7-day addition, arbitrary ranges, single
 
 The Form Builder tracks dirty state and guards navigation/unload while changes are unsaved.
 
+Generic Form Builder controls now use the shared admin fields/inputs/selects/textareas/buttons/icon buttons/menu items. Redundant always-visible `저장됨`, field-number microcopy, repeated settings descriptions, boxed required-state copy, per-date pill boxes and option-level decorative boxes were removed or reduced. The blackout timetable remains specialized because drag-paint behavior is unique to availability editing.
+
 ### Publish autosave behavior
 
 `모집 시작` and `모집 재개` are save-before-publish operations.
@@ -173,6 +207,8 @@ If the mounted Form Builder is dirty:
 4. only then is study status changed to `published`
 
 If save validation/persistence fails and dirty state remains, publishing is aborted. This prevents a researcher from clicking publish, returning home, and exposing the older saved form while assuming the latest edits were published.
+
+The Form Builder now exposes this save callback from canonical component source rather than through a prebuild mutation.
 
 Stopping recruitment does not force an unrelated form save.
 
@@ -203,13 +239,13 @@ Current cross-workflow actions include:
 
 - applicant detail → `일정 조율하기`
 - applicant detail → `연락하기`
-- schedule → `이 참가자에게 연락`
+- schedule → `연락하기`
 - contact → `일정 보기`
 - contact → `신청 내용`
 
 Selecting an unmatched pre-application inquiry clears participant context so an unrelated applicant is not silently carried across.
 
-The top-level StudyWorkspace listens for the internal `studyform:navigate` event and changes tabs without discarding the participant query parameter. This behavior is currently injected by the build-time rewrite layer and should move into canonical workspace source when that debt is removed.
+The top-level StudyWorkspace listens for the internal `studyform:navigate` event and changes tabs without discarding the participant query parameter. This behavior is still injected by the build-time compatibility layer and should move into canonical workspace source when that debt is removed.
 
 ## 9. Researcher-wide scheduling model
 
@@ -237,6 +273,8 @@ Assignment statuses:
 Cancellation preserves the row. `(response_id, session_key)` is unique. Legacy `draft` assignment writes are normalized to `confirmed`.
 
 The UI additionally supports configured session order, max sessions/day, participant-selected scheduling, admin-agreed direct scheduling, search/filtering, lifecycle states, and 4-date schedule-window navigation.
+
+Generic Schedule controls — participant search/filter, navigation arrows, page/panel actions, assignment actions, coordination actions and confirmation actions — use shared admin primitives. Session selectors and timetable cells remain specialized schedule components but consume the shared type/line tokens.
 
 ### Schedule action hierarchy
 
@@ -278,6 +316,8 @@ Current schedule labels:
 
 The selected participant header also provides direct workflow actions to schedule or contact that same participant.
 
+Participant search/actions and detail/history rows use the shared admin primitives. Per-slot chip boxes and internal ID microtext were removed in favor of row-based summaries.
+
 CSV and JSON export are supported.
 
 ## 11. Public inquiry system
@@ -308,6 +348,8 @@ Sources include `participant` and `public_inquiry`.
 
 The contact UI prioritizes pending conversations, then recency, and supports participant/inquiry search. For a selected participant, Contact keeps the shared participant context and exposes `일정 보기` and `신청 내용` shortcuts. Automatic schedule email is recorded in conversation history but does not falsely clear a pending participant inquiry.
 
+Generic Contact headers, lists, search, actions, composer controls and inline schedule rows use the shared admin primitives. Email message bubbles remain a specialized communication surface.
+
 ### Inline schedule context
 
 A matched participant's conversation includes a compact `일정` section inside the existing conversation surface. It does **not** reproduce the full timetable.
@@ -333,7 +375,7 @@ Repeated state wording is intentionally minimized:
 - successful provider sends are surfaced as `이메일을 보냈습니다.` rather than exposing transport status text
 - empty-state and source labels are short and task-oriented
 
-Admin UI should continue to prefer spacing, typography, subtle full-surface state, and dividers over ornamental cards or a colored left edge used as the only status cue.
+Admin UI should continue to prefer spacing, typography, subtle full-surface state and dividers over ornamental cards or a colored left edge used as the only status cue.
 
 ## 13. ClawMail email provider
 
@@ -487,14 +529,14 @@ Production still contains demo/test studies and synthetic participants. Clean th
 
 ### UX follow-up
 
-1. Run an authenticated visual/click audit of participant-centered Applicant → Schedule → Contact workflows when a researcher session is available.
-2. Add further coordination UI only when it removes a demonstrated workflow gap; avoid duplicating schedule state or explanatory copy across surfaces.
+1. Run an authenticated visual/click audit of Home → Form → Applicant → Schedule → Contact with realistic long names/emails/session labels.
+2. Fix only concrete hierarchy, overflow or state-confusion problems found in that audit; do not add more decorative surfaces to make the UI feel “designed.”
 3. Consider persisted schedule proposals (`proposed -> confirmed`) only if real researcher/participant negotiation needs explicit acceptance tracking.
 4. Review whether participant context should eventually be represented in route structure rather than only a query parameter.
 
 ### Code maintainability
 
-1. Remove `scripts/prebuild-ui-copy.mjs` source rewriting and make current UI source canonical.
+1. Remove the remaining `scripts/prebuild-ui-copy.mjs` top-level `page.tsx`/StudyWorkspace mutation and make current workspace behavior canonical source.
 2. Reconcile stale KeyID-era README/config and `SOURCE_MANIFEST.json`.
 3. Simplify legacy enum/provider states when compatibility is no longer needed.
 
@@ -515,7 +557,7 @@ A production behavior change is complete only when all applicable layers are kno
 - Edge Function version/auth state verified if relevant
 - Next/Vercel build succeeds
 - intended production deployment is READY
-- deployed commit equals the intended source commit
+- deployed commit equals the intended runtime/source snapshot
 - relevant researcher/participant behavior is tested at the real boundary when an authenticated environment is available
 - unperformed tests are explicitly recorded rather than implied
 - temporary infrastructure/probes are disabled or cleaned up

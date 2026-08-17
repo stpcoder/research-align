@@ -12,6 +12,142 @@ Rules:
 
 ---
 
+## 2026-08-17 KST — Shared admin primitive system completed across researcher pages
+
+### Goal
+
+Make researcher UI consistency structural rather than cosmetic: equivalent buttons, inputs, dropdowns, rows, status badges, metrics, tables, dividers, and typography should be the same implementation across Home, 신청서, 신청자, 일정, and 연락.
+
+The explicit design constraints were:
+
+- remove low-value tiny microcopy
+- reduce card/box accumulation
+- avoid left-edge-only state decoration
+- centralize border/divider thickness, font family, and type scale
+- keep domain-specific components specialized only when their interaction is genuinely unique
+
+### Foundation and earlier migrations — CHANGE-013 through CHANGE-016
+
+The first phase established the shared admin foundation and migrated participant/contact surfaces:
+
+- `6c35064df79111d37fc1f3c48abd24f06ed6f3be` — shared admin design foundation
+- `8c2c6578b3175a9a170677768f647d639c6d7acf` — participant page migration
+- `6a80a9f08e3aa97fcbf0f97c17dc782b0317c212` — Contact migration
+- `8c4a7872f24b73410f0650ba064cc7a1c90c27e3` — legacy visual conflict cleanup
+
+The combined state was production-built as exact SHA `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2` on deployment `dpl_ArkQh4QUyjMG1ehnrR99WrAcVnhG` through deploy-control job `6dc462a6-cc4a-41af-8b6e-aa499d047fa2` / request `124`.
+
+### CHANGE-20260817-017 — complete Home/Form/Schedule primitive migration
+
+Source commit:
+
+- `a1741845de378eeef85308e74298d34850acefb3` — `refactor(ui): complete shared admin primitive migration`
+
+The source was deliberately squashed to one commit directly on the prior production baseline `fdb0e31...`; an intermediate Home-only checkpoint was removed from the work-branch history and is not part of the durable change sequence.
+
+#### Shared component ownership
+
+`src/components/admin/AdminUI.tsx` now owns generic researcher primitives including:
+
+- buttons, link buttons, icon buttons
+- inputs, selects, textareas, fields
+- page/section/panel headers
+- surfaces, split views, dividers
+- status badges and selectable list rows
+- menu rows and action rows
+- data rows and tables
+- metric strips
+
+#### Shared visual tokens
+
+`src/app/admin-foundation.css` owns:
+
+- shared font family
+- explicit 1px structural line/divider token
+- normal/strong line colors
+- page/section/panel/body/label/meta type roles
+- surface radius/padding
+- button/control heights and radii
+- list/table/data-row geometry
+- selected full-surface treatment
+- compatibility aliases for remaining legacy class names
+
+Routine metadata is 12px. 11px is reserved for a real kicker/index role; routine 10px helper text is not part of the normal system.
+
+#### Home
+
+- page actions/status/metrics/agenda moved to shared primitives
+- top four metrics are one strip separated by 1px dividers instead of four cards
+- per-study operational counters are quiet text actions rather than another four-box grid
+- upcoming sessions use shared action rows
+- stop-before-delete behavior now lives directly in canonical `ResearchHome.tsx`
+
+#### Form Builder
+
+- generic fields, inputs, selects, textareas, actions, icon buttons, and add-menu rows use shared primitives
+- removed always-visible `저장됨`, question-number microcopy, repeated section explanations, date-pill boxes, boxed required-state copy, and redundant option descriptions
+- option editing uses divider rows rather than one rounded box per option
+- blackout cells remain specialized because drag-paint behavior is domain-specific
+- publish-save callback now lives directly in canonical `FormBuilderUnified.tsx`
+
+#### Schedule
+
+- participant search/filter, page/panel actions, date navigation, assignment actions, coordination actions, and confirm actions use shared primitives
+- session selector and timetable cells remain specialized because they encode scheduling state
+- specialized schedule cells still consume the same typography and 1px line tokens
+
+### Build-time mutation reduction
+
+`scripts/prebuild-ui-copy.mjs` no longer patches:
+
+- ResearchHome stop-before-delete behavior
+- FormBuilder publish-save callback
+
+It still owns the legacy top-level `page.tsx` / StudyWorkspace compatibility transformation and date-window safety replacement. Removing that remaining mutation is still technical debt.
+
+### Production rollout
+
+The exact `main` snapshot including the CHANGE-017 ledger entry was deployed:
+
+- deployed SHA: `dfb8a7796b90bce663a8e48fcf90296cd1857ad0`
+- deploy-control job: `3e3d7508-73d9-4eb6-a2e2-cfe3557a9280`
+- request: `125`
+- Vercel deployment: `dpl_HcfM9jkpgDoSmXpfwDu4VCpgCrJv`
+- Vercel status: `READY`
+- production URL: `https://research-align.vercel.app`
+- snapshot source: `github-codeload`
+
+The READY deployment verifies the Next.js/TypeScript production build for the complete shared primitive migration.
+
+### Backend impact
+
+- no database migration
+- no PostgreSQL trigger/RPC/RLS change
+- no Edge Function change
+- ClawMail and schedule-notify contracts unchanged
+
+### Verification boundary
+
+This remained a connector-only session with no trusted local checkout and no authenticated researcher browser context.
+
+Verified:
+
+- source/ledger commit history
+- exact intended file diff
+- deploy-control job success
+- Vercel READY
+- exact production SHA
+- Next.js/TypeScript production build
+
+Not run:
+
+- authenticated visual inspection of Home/Form/Applicant/Schedule/Contact
+- authenticated click-through of the complete participant-centered workflow
+
+The next UX action is therefore a visual/click audit with realistic long values. Only concrete hierarchy, overflow, line-alignment, or state-confusion findings should result in further UI changes; do not add decorative layers merely for polish.
+
+---
+
 ## 2026-08-17 KST — Contact schedule context added while simplifying the messaging UI
 
 ### Goal

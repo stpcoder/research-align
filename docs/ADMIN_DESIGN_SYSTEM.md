@@ -2,7 +2,7 @@
 
 This document is the source of truth for the authenticated researcher UI: home, `신청서`, `신청자`, `일정`, and `연락`.
 
-The goal is not to make every page look decorative. The goal is to make the same interaction mean and look the same everywhere.
+The goal is not to make every page decorative. The goal is to make the same interaction mean and look the same everywhere.
 
 ## 1. Non-negotiable principles
 
@@ -11,15 +11,16 @@ The goal is not to make every page look decorative. The goal is to make the same
    - same input/select/textarea geometry
    - same surface border/radius
    - same divider thickness/color
-   - same typography scale
+   - same typography scale and font family
    - same status badge vocabulary
    - same list selection treatment
 2. **Hierarchy before decoration.** Use spacing, typography, and one parent surface before adding a box.
-3. **No box accumulation.** A new piece of context does not justify a new card by itself. Avoid nested bordered rectangles.
-4. **No microcopy accumulation.** If label, status, or value already explains the state, do not repeat it with another 10–11px helper line.
+3. **No box accumulation.** A new piece of context does not justify a new card by itself. Avoid nested bordered rectangles and card-per-value layouts.
+4. **No microcopy accumulation.** If label, status, or value already explains the state, do not repeat it with another tiny helper line.
 5. **No left-rail state language.** A colored left edge must never be the sole selected/status treatment. Use a subtle full-surface state plus text/badge where needed.
 6. **One primary action per operational region.** Secondary/destructive actions must not compete with the next task.
-7. **No page-local control styling.** Page CSS may arrange controls, but must not redefine button/control height, border width, radius, or base font size.
+7. **No page-local generic controls.** Generic button, input, dropdown, row, table, metric, menu, or icon-button patterns belong in the shared component system.
+8. **No page-local geometry overrides.** Page CSS may arrange controls, but must not redefine button/control height, border width, radius, normal divider, or base type scale.
 
 ## 2. Source of truth in code
 
@@ -29,17 +30,19 @@ The goal is not to make every page look decorative. The goal is to make the same
 
 This file owns:
 
+- `--ui-font-family`
 - color tokens
-- line/divider color and 1px thickness
+- `--ui-line-width` and the 1px line/divider system
 - typography scale
 - control height and radius
 - surface radius/padding
 - shared button variants
 - input/select/textarea geometry
-- shared data-row/table geometry
+- shared list/data-row/table geometry
+- selected-state treatment
 - compatibility aliases for existing `.btn`, `.card`, `.aui-*`, `--line`, `--soft`, etc.
 
-It is imported **last** from `src/app/layout.tsx`. Older page CSS may control layout, but the foundation layer wins for shared geometry and type.
+It is imported **last** from `src/app/layout.tsx`. Older page CSS may control layout or domain-specific state colors, but the foundation layer owns shared geometry and typography.
 
 ### Shared React primitives
 
@@ -47,30 +50,73 @@ It is imported **last** from `src/app/layout.tsx`. Older page CSS may control la
 
 Use these instead of inventing page-specific equivalents:
 
+**Navigation and actions**
+- `AdminButton`
+- `AdminLinkButton`
+- `AdminIconButton`
+- `AdminActions`
+- `AdminToolbar`
+
+**Page and surface structure**
 - `AdminPageHeader`
+- `AdminSectionHeader`
 - `AdminPanelHeader`
 - `AdminSurface`
 - `AdminSplitView`
-- `AdminButton`
+- `AdminDivider`
+
+**Form controls**
 - `AdminInput`
 - `AdminSelect`
 - `AdminTextarea`
 - `AdminField`
-- `AdminActions`
-- `AdminToolbar`
-- `AdminDivider`
+
+**Lists, menus, state and records**
 - `StatusBadge`
 - `AdminListItem`
+- `AdminMenuItem`
+- `AdminActionRow`
 - `AdminDataList`
 - `AdminDataRow`
+
+**Metrics and tables**
+- `AdminMetricStrip`
+- `AdminMetric`
 - `AdminTable`
 - `AdminTableRow`
 - `AdminTableCell`
 - `SegmentedControl`
 
-Existing raw `.btn` / standard inputs remain temporarily supported through the compatibility layer, but new researcher UI should use the primitives above.
+Legacy raw `.btn` and standard inputs remain supported by the compatibility layer for old code, but **new researcher UI must not introduce new raw equivalents** when a shared primitive exists.
 
-## 3. Typography scale
+## 3. Generic vs specialized component boundary
+
+A component is **generic** when the same interaction can appear in more than one work area. It must live in `AdminUI.tsx` or another shared admin module.
+
+Examples:
+
+- button / link button / icon button
+- input / textarea / dropdown
+- page or section header
+- status badge
+- selectable list row
+- menu row
+- data/history row
+- metric strip
+- table shell
+
+A component may remain **specialized** when its visual structure is inseparable from unique domain behavior.
+
+Allowed examples:
+
+- schedule session selector
+- schedule timetable cell
+- availability blackout cell
+- email message bubble
+
+Specialized components still consume the shared font, line, spacing, radius and semantic-state tokens. “Specialized” is not permission to create a second button/input/table design system.
+
+## 4. Typography scale
 
 Use only these base roles unless a specific data visualization genuinely needs another size.
 
@@ -82,20 +128,22 @@ Use only these base roles unless a specific data visualization genuinely needs a
 - Metadata/helper/status: **12px / 400–650**
 - Kicker/index only: **11px / 800**
 
-Do not create routine 10px metadata. If information is too unimportant for 12px metadata, consider removing it.
+Default family is `--ui-font-family` from `admin-foundation.css`.
 
-## 4. Lines, borders, radii
+Do not create routine 10px metadata. If information is too unimportant for 12px metadata, remove it or reveal it only when needed.
+
+## 5. Lines, borders, radii
 
 Shared structural line:
 
-- thickness: **1px**
+- thickness: **1px** via `--ui-line-width`
 - normal color: `--ui-line`
 - stronger interactive border: `--ui-line-strong`
 
 Rules:
 
 - horizontal and vertical dividers use the same 1px system
-- table/grid internal lines use the same system
+- table/timetable/blackout internal grid lines use the same system
 - do not mix 1px/2px/3px borders for ordinary hierarchy
 - 2px+ outlines are reserved for explicit focus/temporary selection states only
 
@@ -106,7 +154,7 @@ Radii:
 - status pills: fully rounded
 - timetable internal cells: **0 radius**; only the outer container is rounded
 
-## 5. Surfaces
+## 6. Surfaces
 
 A major surface is a real work area: participant list, editor, conversation, timetable, dashboard group.
 
@@ -122,6 +170,7 @@ Avoid:
 
 - card inside card inside card
 - one bordered rectangle per metric/value
+- one box per option/date when a divider row or quiet action is enough
 - colored edge strips used as state decoration
 - separate status box plus status pill plus helper text saying the same thing
 
@@ -130,16 +179,20 @@ Within a surface, prefer:
 - whitespace
 - `AdminDivider`
 - `AdminDataRow`
+- `AdminActionRow`
 - typography hierarchy
 
-## 6. Buttons
+## 7. Buttons
 
-All researcher buttons map to four variants:
+Researcher buttons use shared variants:
 
 - `primary`: next/commit action
 - `secondary`: useful alternative
-- `ghost`: low-priority navigation/utility
+- `ghost`: low-priority bordered navigation/utility
 - `danger`: destructive action
+- `text`: quiet inline action that should not become another rectangle
+
+`AdminIconButton` is for compact icon-only utility controls such as previous/next or drag/remove actions.
 
 Shared geometry:
 
@@ -151,7 +204,7 @@ Shared geometry:
 
 Do not create a page-specific button color/height/padding because a page feels “special.”
 
-## 7. Form controls
+## 8. Form controls
 
 Text, date, time, number, select, and textarea controls use one shared geometry:
 
@@ -162,13 +215,13 @@ Text, date, time, number, select, and textarea controls use one shared geometry:
 - padding: **9px 10px**
 - textarea min height: **88px**
 
-Use `AdminField` for label + control + optional one-line hint/error.
+Use `AdminField` for label + control + at most one useful hint/error.
 
 Do not stack several helper sentences below a normal input. Keep only information required to complete the task correctly.
 
-## 8. Lists, rows, and tables
+## 9. Lists, rows, menus, and tables
 
-Equivalent objects should use the same row language across pages.
+Equivalent objects use the same row language across pages.
 
 ### Selection list
 
@@ -180,11 +233,15 @@ Selected state:
 - 1px inset/outline using shared line color
 - never a left-only rail
 
+### Menu/action row
+
+Use `AdminMenuItem` for compact choice menus and `AdminActionRow` for clickable record/agenda rows. Do not build a custom rounded box for every action.
+
 ### Data rows
 
-Use `AdminDataList` + `AdminDataRow` for compact records such as schedule context, recent state, or key/value operational rows.
+Use `AdminDataList` + `AdminDataRow` for compact records such as schedule context, history, or key operational rows.
 
-Rows are separated by 1px shared dividers, not independent cards.
+Rows are separated by the shared 1px divider, not independent cards.
 
 ### Tables
 
@@ -195,7 +252,7 @@ Use `AdminTable` primitives for tabular operational data when column alignment m
 - horizontal scroll when necessary
 - do not shrink columns until labels wrap into unreadable stacks
 
-## 9. Schedule/timetable
+## 10. Schedule/timetable
 
 Schedule grids are a specialized table, not a collection of cards.
 
@@ -203,47 +260,60 @@ Schedule grids are a specialized table, not a collection of cards.
 - radius only on outer scroll container
 - cell radius 0
 - state shown with restrained full-cell background
-- text hierarchy remains 12px+ for meaningful labels
+- meaningful labels use the shared 12px+ type scale
 - continuation cells should be quiet
+- search/filter/date navigation/confirmation buttons use shared admin primitives
 
 Do not use a colored left stripe to identify a schedule state.
 
-## 10. Per-page guidance
+## 11. Per-page implementation state
 
 ### Home
 
-- operational metrics are compact, not dashboard-card theater
-- study actions use shared buttons
-- upcoming schedule is row-based
+- page header/actions: shared
+- metric strip: shared; one surface with dividers rather than four metric cards
+- study status/buttons: shared
+- per-study operational counts: quiet text actions rather than small boxes
+- upcoming agenda: `AdminActionRow`
 
 ### 신청서
 
-- one `기본 정보` surface
-- question index + selected editor
+- basic inputs/selects/textareas/actions: shared
+- question menu: `AdminMenuItem`
+- choice input/remove/drag controls: shared
 - settings sections separated by spacing/dividers rather than multiple cards
-- helper copy only where validation/behavior is otherwise unclear
+- date selections are quiet text actions instead of pill boxes
+- blackout cells remain specialized because drag-paint behavior is domain-specific
 
 ### 신청자
 
 - shared two-pane layout
 - participant list uses `AdminListItem`
-- detail sections use dividers/data rows
+- detail/history uses shared data-row language
 
 ### 일정
 
+- search/filter/actions/date navigation use shared controls
 - participant list uses the same list treatment as 신청자/연락
-- session selection uses the same shared selected-state tokens
-- timetable uses the shared line/type system
-- confirmation is one clear primary action
+- session selector and timetable cells remain specialized schedule controls
+- timetable still consumes shared line/type tokens
+- confirmation uses shared buttons with one clear primary action
 
 ### 연락
 
 - participant/inquiry list uses the shared list treatment
 - conversation is one main surface
-- inline schedule context uses rows/dividers, not another card
-- provider identity remains secondary utility UI
+- composer inputs/actions are shared
+- inline schedule context uses data rows/dividers, not another card
+- email message bubbles remain specialized
 
-## 11. CSS ownership rule
+## 12. Build-time mutation constraint
+
+`ResearchHome.tsx` now owns the stop-before-delete lifecycle directly, and `FormBuilderUnified.tsx` owns its publish-save callback directly. `scripts/prebuild-ui-copy.mjs` no longer patches those two component behaviors.
+
+The remaining build-time mutation is the legacy top-level `page.tsx` / `StudyWorkspace` compatibility layer plus the schedule date-window safety rewrite. Removing that remaining mutation is still desirable technical debt.
+
+## 13. CSS ownership rule
 
 Page-specific CSS may define:
 
@@ -251,19 +321,20 @@ Page-specific CSS may define:
 - column widths
 - scrolling
 - task-specific state backgrounds
-- specialized timetable positioning
+- specialized timetable/blackout positioning
 
 Page-specific CSS must **not** redefine:
 
+- base font family
 - base button height/font/radius/border
 - base input/select/textarea height/font/radius/border
-- normal divider thickness/color
+- normal horizontal/vertical divider thickness/color
 - shared surface border/radius/shadow
 - shared page/section/body/meta font sizes
 
 If a new requirement cannot be expressed with the shared primitives/tokens, update the design system first rather than adding an isolated one-off style.
 
-## 12. Responsive behavior
+## 14. Responsive behavior
 
 - below 900px, two-pane layouts become one column
 - action rows may horizontally scroll instead of wrapping labels
