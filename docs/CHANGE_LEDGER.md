@@ -77,6 +77,49 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-014 — Migrate participant page to shared admin primitives
+
+- Time: 2026-08-17 20:40 KST
+- Type: refactor
+- Area: participant / admin-ui
+- Source commit: `8c2c6578b3175a9a170677768f647d639c6d7acf`
+- Branch: `work/20260817-admin-design-system`
+- Status: committed
+
+### What changed
+- Replaced the participant-page search control and all participant-page action buttons with shared `AdminInput`, `AdminButton`, and `AdminActions` primitives.
+- Removed the decorative `PARTICIPANTS` kicker and the internal response-ID microtext from the selected participant header.
+- Shortened page and empty-state copy so the page relies on labels and hierarchy instead of repeated helper text.
+- Replaced per-slot availability chips with shared row-based session summaries, reducing the number of small bordered elements.
+- Replaced page-specific schedule/contact history rows with shared `AdminDataList` / `AdminDataRow` primitives while retaining semantic `StatusBadge` state.
+- Kept all participant data/export/navigation behavior unchanged.
+
+### Files / objects
+- `src/components/ResponseManagerUnified.tsx`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: read/write behavior unchanged
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: none
+
+### Application deployment
+- Deployment ID: not deployed; work branch only
+- Production commit: unchanged at `a077cb8f0164df9a979cf6f7347e10b0917978dc`
+
+### Verification
+- `[PASS]` source commit created on the design-system work branch after CHANGE-013 was ledgered.
+- `[PASS]` the migration uses only shared primitives introduced in CHANGE-013 and removes page-local decorative elements without changing queries or state transitions.
+- `[NOT RUN]` local Next.js build unavailable in connector-only mode; the work branch will be build-verified before integration.
+
+### Notes / follow-up
+- The next checkpoint migrates the remaining researcher work areas and removes remaining page-local control/row patterns before integration to main.
+
+---
+
 ## CHANGE-20260817-013 — Establish one shared admin design foundation
 
 - Time: 2026-08-17 20:27 KST
