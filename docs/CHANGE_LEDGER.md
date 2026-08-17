@@ -77,6 +77,51 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-013 — Establish one shared admin design foundation
+
+- Time: 2026-08-17 20:27 KST
+- Type: refactor
+- Area: admin-ui / design-system
+- Source commit: `6c35064df79111d37fc1f3c48abd24f06ed6f3be`
+- Branch: `work/20260817-admin-design-system`
+- Status: committed
+
+### What changed
+- Added `src/app/admin-foundation.css` as the final-loaded source of truth for researcher/admin design tokens: typography scale, 1px divider/border system, surface radius/padding, control geometry, button variants, selected-row treatment, and shared table/data-row geometry.
+- Added compatibility aliases so existing `.btn`, `.card`, `.aui-*`, `--line`, and `--soft` usages resolve to the same design tokens while pages are migrated instead of visually diverging during the refactor.
+- Expanded `src/components/admin/AdminUI.tsx` with shared `AdminButton`, input/select/textarea, field, actions/toolbar, divider, data-row, and table primitives while preserving the existing page header/surface/list/status APIs.
+- Imported the foundation stylesheet last from `src/app/layout.tsx`, making shared line thickness, font sizes, control dimensions, and border/radius rules authoritative over older page-local CSS.
+- Rewrote `docs/ADMIN_DESIGN_SYSTEM.md` to make component/token reuse mandatory and explicitly prohibit page-local button/control geometry, routine sub-12px metadata, nested card accumulation, and left-edge-only state styling.
+
+### Files / objects
+- `src/app/admin-foundation.css`
+- `src/components/admin/AdminUI.tsx`
+- `src/app/layout.tsx`
+- `docs/ADMIN_DESIGN_SYSTEM.md`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no database behavior changed
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: none
+
+### Application deployment
+- Deployment ID: not deployed; work branch only
+- Production commit: unchanged at `a077cb8f0164df9a979cf6f7347e10b0917978dc`
+
+### Verification
+- `[PASS]` atomic foundation source commit created on `work/20260817-admin-design-system` from current main baseline `1244212fd33630bbf971fe6f3bb21961d82c6b72`.
+- `[PASS]` compatibility layer intentionally preserves existing class names while centralizing their shared geometry.
+- `[NOT RUN]` local Next.js build is unavailable in connector-only mode; production remains unchanged while page migration continues on the work branch.
+
+### Notes / follow-up
+- The next checkpoint migrates existing researcher pages toward these primitives and removes page-specific microcopy/box/border overrides before the work branch is integrated into `main`.
+
+---
+
 ## CHANGE-20260817-012 — Simplify Contact chrome and remove redundant operational copy
 
 - Time: 2026-08-17 19:05 KST
