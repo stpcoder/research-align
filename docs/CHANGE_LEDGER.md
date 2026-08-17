@@ -84,7 +84,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: contact / UX / visual hierarchy
 - Source commit: `283065e65869da26b174470dc76edd8563a20aeb`
 - Branch: `main`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Replaced the multi-line mailbox status box (`connected/missing` label + address/explanation + status dot) with a compact utility row showing only the research mailbox address, last sync time when useful, and one mailbox action.
@@ -108,13 +108,15 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: provider/API contract unchanged
 
 ### Application deployment
-- Deployment ID: not deployed yet
-- Production commit: currently unchanged (`a68c2439c66ecd663466a746adb37f085f5c57c0`)
+- Deployment ID: `dpl_ACQXqHwb12F6K2mfp4ucAcczamT6`
+- Production commit: `a077cb8f0164df9a979cf6f7347e10b0917978dc`
 
 ### Verification
 - `[PASS]` source commit created atomically with copy reduction and compact mailbox/composer styling.
 - `[PASS]` implementation follows `ADMIN_DESIGN_SYSTEM.md`: hierarchy before decoration, no nested contact card, no left-edge-only state indicator, and one clear primary composer action.
-- `[PENDING]` production Next.js build and authenticated Contact workflow verification.
+- `[PASS]` deploy-control job `0abc2c43-a852-47ea-aaf0-057014db2653` succeeded; pg_net request `123` returned a READY Vercel deployment.
+- `[PASS]` production Next.js/TypeScript build accepted exact SHA `a077cb8f0164df9a979cf6f7347e10b0917978dc` via `github-codeload`.
+- `[NOT RUN]` authenticated researcher Contact click/visual E2E was unavailable in this connector-only session.
 
 ### Notes / follow-up
 - This change intentionally removes information rather than adding new interaction states; technical provider state remains available in the underlying data/functions, not repeated in primary UI.
@@ -128,7 +130,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: contact / schedule / participant-workflow
 - Source commit: `86e321f56db888a30dca57ec4b69bcee345eb07a`
 - Branch: `main`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Contact now loads current study assignments together with participants and message threads.
@@ -151,15 +153,17 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: ClawMail and schedule-notify contracts unchanged
 
 ### Application deployment
-- Deployment ID: not deployed yet
-- Production commit: currently unchanged (`a68c2439c66ecd663466a746adb37f085f5c57c0`)
+- Deployment ID: `dpl_ACQXqHwb12F6K2mfp4ucAcczamT6`
+- Production commit: `a077cb8f0164df9a979cf6f7347e10b0917978dc`
 
 ### Verification
 - `[PASS]` source commit created atomically with Contact logic and restrained schedule-context styling.
-- `[PENDING]` production Next.js build and authenticated Contact workflow verification will be performed after the paired contact-chrome simplification change.
+- `[PASS]` deploy-control job `0abc2c43-a852-47ea-aaf0-057014db2653` succeeded and Vercel reached READY.
+- `[PASS]` production build includes this source commit as an ancestor of deployed SHA `a077cb8f0164df9a979cf6f7347e10b0917978dc`.
+- `[NOT RUN]` authenticated researcher Contact click/visual E2E was unavailable in this connector-only session.
 
 ### Notes / follow-up
-- The schedule context deliberately does not reproduce the full timetable; `일정에서 보기` remains the route for detailed coordination.
+- The schedule context deliberately does not reproduce the full timetable; `일정 보기` remains the route for detailed coordination.
 
 ---
 
