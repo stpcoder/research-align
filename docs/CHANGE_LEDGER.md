@@ -77,6 +77,55 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-016 — Remove legacy visual conflicts and box/microcopy drift
+
+- Time: 2026-08-17 21:00 KST
+- Type: refactor
+- Area: admin-ui / css / visual-system
+- Source commit: `8c4a7872f24b73410f0650ba064cc7a1c90c27e3`
+- Branch: `work/20260817-admin-design-system`
+- Status: committed
+
+### What changed
+- Extended the final-loaded admin foundation so Home, Form, Schedule, Contact, and participant-management surfaces resolve to the same shared border, divider, typography, selection, control, and grid-line tokens even where legacy class names remain.
+- Converted Home's four separate metric cards into one shared surface split by the standard 1px divider system.
+- Removed decorative duplicate `FORM` / `SCHEDULE` kickers and nonessential Form panel helper copy from the rendered design without adding replacement labels.
+- Normalized routine form/schedule/availability helper, legend, and cell text to the 12px metadata scale instead of page-specific 10–11px values.
+- Changed Form choice editing from one bordered rounded box per option to plain divider rows; removed dashed bordered empty-state boxes.
+- Standardized availability/blackout grid borders, input suffix borders, control heights, and legend typography to the foundation tokens.
+- Added explicit compatibility overrides preventing old schedule selected/next-action left-rail styles from reappearing.
+- Deleted unused legacy `src/app/admin-system.css` and `src/app/admin-ux.css`, which were not imported and duplicated/conflicted with the current admin design language.
+
+### Files / objects
+- `src/app/admin-foundation.css`
+- `src/app/form-controls.css`
+- `src/app/availability-editor.css`
+- deleted `src/app/admin-system.css`
+- deleted `src/app/admin-ux.css`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no database behavior changed
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: none
+
+### Application deployment
+- Deployment ID: not deployed; work branch only
+- Production commit: unchanged at `a077cb8f0164df9a979cf6f7347e10b0917978dc`
+
+### Verification
+- `[PASS]` cleanup was committed atomically after CHANGE-015 was ledgered.
+- `[PASS]` specialized timetable/blackout controls retain task-specific layout/state colors while their line thickness, font scale, and base geometry resolve to the same shared tokens.
+- `[NOT RUN]` local build unavailable in connector-only mode; final branch integration/build verification follows.
+
+### Notes / follow-up
+- Domain-specific schedule cells and message bubbles remain specialized components by design; generic buttons, controls, lists, rows, surfaces, and typography are governed by the shared foundation.
+
+---
+
 ## CHANGE-20260817-015 — Migrate Contact workspace to shared admin primitives
 
 - Time: 2026-08-17 20:50 KST
@@ -532,7 +581,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 ### What changed
 - Exposed the mounted unified Form Builder's existing `save()` operation to the workspace while mounted.
 - `모집 시작` and `모집 재개` detect unsaved form changes, save them first, wait for the dirty state to clear, and only then change the study status to `published`.
-- If form validation or persistence fails and the dirty state remains, publishing is aborted instead of exposing stale saved data.
+- If form validation or persistence fails and dirty state remains, publishing is aborted instead of exposing stale saved data.
 - `모집 중지` does not force an unrelated save; autosave applies only when entering the published state.
 
 ### Files / objects
