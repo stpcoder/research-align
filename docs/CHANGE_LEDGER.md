@@ -77,6 +77,47 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-004 — Require recruitment stop before permanent study deletion
+
+- Time: 2026-08-17 17:42 KST
+- Type: fix
+- Area: study-lifecycle / admin-home
+- Source commit: `19a3d9dbd51040d55d9617485f212f4597231447`
+- Branch: `main`
+- Status: committed
+
+### What changed
+- Changed the admin lifecycle so stopping a published study moves it to `closed` instead of back to `draft`.
+- On the researcher home, a published study now shows `모집 중지` in the destructive-action position; after the study is stopped, that action becomes `삭제`.
+- Added a defensive guard so a published study cannot be permanently deleted until recruitment has been stopped.
+- Closed studies show `모집 재개` in the workspace rather than being indistinguishable from a never-published draft.
+
+### Files / objects
+- `scripts/prebuild-ui-copy.mjs`
+- build-time runtime targets: `src/app/page.tsx`, `src/components/ResearchHome.tsx`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: existing `studies.status` already supports `draft | published | closed`
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: none
+
+### Application deployment
+- Deployment ID: not deployed yet
+- Production commit: unchanged (`dd5eab06280f78f37d5926f4d940ef697c04d4b0`)
+
+### Verification
+- `[PASS]` source commit created on `main` with the stop-before-delete build transformation.
+- `[PENDING]` Next.js production build and authenticated admin E2E will be verified during the deployment pass after the requested publish-autosave fix is also committed.
+
+### Notes / follow-up
+- This change intentionally uses the repository's existing build-time UI transformation layer; eliminating that layer remains separate technical debt.
+
+---
+
 ## CHANGE-20260817-003 — Add disposable-workspace rehydration and recovery protocol
 
 - Time: 2026-08-17 13:46 KST
