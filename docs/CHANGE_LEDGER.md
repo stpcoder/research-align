@@ -77,6 +77,46 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-007 — Normalize codeload archive root before Vercel snapshot
+
+- Time: 2026-08-17 17:51 KST
+- Type: fix
+- Area: deploy / vercel-control
+- Source commit: `69bc18301e6964c04dfccefc40a0c88a7365a0b7`
+- Branch: `main`
+- Status: committed
+
+### What changed
+- Reworked the codeload tar parser into two passes: first collect regular-file entries, then determine and strip the common archive root directory.
+- Added a hard validation that `package.json` exists after root normalization before sending the snapshot to Vercel.
+- This fixes the first exact-SHA codeload deployment reaching Vercel with incorrectly rooted paths and failing with `missing_pages_app`.
+
+### Files / objects
+- `supabase/functions/vercel-control/index.ts`
+- live Edge Function target: `vercel-control`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no schema change
+
+### Edge / provider
+- Function/provider: `vercel-control`
+- Deployment/auth state: source committed; live v4 deployment pending; `verify_jwt=false` with existing custom high-entropy `controlKey`
+
+### Application deployment
+- Deployment ID: previous failed test `dpl_2x8TvtPSYyDCvZXT3mcx3P2PhJrk`; corrected retry pending
+- Production commit: unchanged until corrected retry succeeds
+
+### Verification
+- `[PASS]` source commit `69bc18301e6964c04dfccefc40a0c88a7365a0b7` created after the v3 codeload deployment reached Vercel but failed with `missing_pages_app`.
+- `[PENDING]` deploy Edge Function v4 and retry an exact-SHA production deployment.
+
+### Notes / follow-up
+- The package.json guard should fail inside deploy-control before creating a Vercel deployment if future archive-root parsing regresses.
+
+---
+
 ## CHANGE-20260817-006 — Add exact-SHA codeload fallback to deployment control
 
 - Time: 2026-08-17 17:55 KST
