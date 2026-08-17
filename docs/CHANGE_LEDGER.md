@@ -84,7 +84,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Area: admin-ui / visual-consistency / css
 - Source commit: `3ae63c66fb5208e920b006b65cd02ab04c87f27e`
 - Branch: `work/20260817-visual-consistency-audit`
-- Status: committed
+- Status: production-deployed
 
 ### What changed
 - Consolidated structural researcher-UI CSS ownership so `admin-foundation.css` owns shared page headers, surfaces, controls, list rows, status badges, actions, rows, tables, typography, and 1px line geometry instead of relying on later cascade overrides over duplicate definitions.
@@ -116,17 +116,21 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Deployment/auth state: ClawMail and schedule-notify contracts unchanged
 
 ### Application deployment
-- Deployment ID: not deployed yet
-- Production commit: unchanged at `dfb8a7796b90bce663a8e48fcf90296cd1857ad0`
+- Deployment ID: `dpl_6wjyszA3h7mhVrFpjRX99zFdfxtu`
+- Production commit: `1eef5a91aed7ee25c754502b22e3f89e8f3faa93`
 
 ### Verification
 - `[PASS]` atomic CSS/layout source commit created on the visual-consistency work branch without changing application behavior code.
 - `[PASS]` audit confirmed the main residual problem was duplicate CSS ownership/high-specificity page overrides rather than missing shared React primitives.
-- `[NOT RUN]` exact Vercel production build and authenticated researcher visual E2E; rollout verification follows this ledger checkpoint.
+- `[PASS]` deploy-control job `84b5bfd7-fd3b-476f-88d4-e756337833db` succeeded; request `126` produced READY Vercel deployment `dpl_6wjyszA3h7mhVrFpjRX99zFdfxtu`.
+- `[PASS]` `deploy_control_state.status = READY`, `commitSha = 1eef5a91aed7ee25c754502b22e3f89e8f3faa93`, and `snapshotSource = github-codeload`.
+- `[PASS]` the production Next.js/TypeScript build accepted the consolidated CSS ownership, stale-import removal, and visual-density reduction.
+- `[NOT RUN]` authenticated researcher browser visual/click E2E is unavailable in this connector-only session.
 
 ### Notes / follow-up
 - `ui-polish.css` remains an unimported legacy file for now; it no longer affects runtime. It can be deleted later with other dead CSS after dependency review.
 - `globals.css` remains the legacy/public baseline; authenticated researcher generic component ownership is `admin-foundation.css`.
+- The initial CHANGE-018 bookkeeping commit reconstructed the full ledger through the connector and unintentionally normalized wording in several older entries (CHANGE-011, CHANGE-008, CHANGE-006). Those edits changed no source SHA, rollout state, or factual meaning; this note makes the bookkeeping-only wording diff explicit rather than silent.
 
 ---
 
