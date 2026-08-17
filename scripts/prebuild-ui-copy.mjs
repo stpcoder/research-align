@@ -30,7 +30,7 @@ const replacements=new Map([
   ['연구자는 각자 로그인하고 자신의 여러 실험만 관리합니다.','참가자 모집, 신청서 작성, 일정 조율, 연락까지 한 곳에서 관리할 수 있습니다.'],
   ['← 내 연구','← 실험 목록'],
   ["const tabs=[['form','Form'],['responses','Responses'],['schedule','Schedule'],['contact','Contact Hub']]","const tabs=[['form','신청서'],['responses','신청자'],['schedule','일정'],['contact','연락']]"],
-  ["study.status==='published'?'모집 중지':'Publish'","study.status==='published'?'모집 중지':'모집 시작'"],
+  ["study.status==='published'?'모집 중지':'Publish'","study.status==='published'?'모집 중지':study.status==='closed'?'모집 재개':'모집 시작'"],
 ])
 for(const[from,to]of replacements)text=text.replaceAll(from,to)
 
@@ -38,6 +38,9 @@ const swStart=text.indexOf('function StudyWorkspace(')
 const swEnd=swStart>=0?text.indexOf('\nfunction FormBuilder(',swStart):-1
 if(swStart>=0&&swEnd>=0){
   let workspace=text.slice(swStart,swEnd)
+  const oldToggle=" async function togglePublish(){const {data,error}=await supabase.from('studies').update({status:study.status==='published'?'draft':'published'}).eq('id',study.id).select().single();if(error)alert(error.message);else setStudy(data as Study)}"
+  const nextToggle=" async function togglePublish(){const nextStatus=study.status==='published'?'closed':'published';const {data,error}=await supabase.from('studies').update({status:nextStatus}).eq('id',study.id).select().single();if(error)alert(error.message);else setStudy(data as Study)}"
+  workspace=workspace.replace(oldToggle,nextToggle)
   const anchor=' async function togglePublish()'
   if(workspace.includes(anchor)&&!workspace.includes('function confirmDirtyLeave'))workspace=workspace.replace(anchor,` function confirmDirtyLeave(){return !(window as any).__studyFormDirty||confirm('저장되지 않은 변경사항이 있습니다. 저장하지 않고 이동할까요?')}\n function leaveStudy(){if(confirmDirtyLeave())setStudy(null)}\n function switchTab(next:string){if(next===tab||confirmDirtyLeave())setTab(next)}\n${anchor}`)
   workspace=workspace.replaceAll('onClick={()=>setStudy(null)}','onClick={leaveStudy}')
@@ -45,6 +48,23 @@ if(swStart>=0&&swEnd>=0){
   text=text.slice(0,swStart)+workspace+text.slice(swEnd)
 }
 fs.writeFileSync(file,text)
+
+// Enforce a clear stop-before-delete lifecycle on the researcher home screen.
+const homeFile='src/components/ResearchHome.tsx'
+let home=fs.readFileSync(homeFile,'utf8')
+home=home.replace(
+  "  const[deletingId,setDeletingId]=useState<string|null>(null)",
+  "  const[deletingId,setDeletingId]=useState<string|null>(null)\n  const[stoppingId,setStoppingId]=useState<string|null>(null)"
+)
+if(!home.includes('async function stopStudy(study:Study)'))home=home.replace(
+  '  async function deleteStudy(study:Study){\n    if(deletingId)return',
+  "  async function stopStudy(study:Study){\n    if(stoppingId)return\n    if(!window.confirm(`“${study.title}” 참가자 모집을 중지할까요?\\n\\n중지하면 참가자 페이지에서 더 이상 신청할 수 없고, 이후 실험을 삭제할 수 있습니다.`))return\n    setStoppingId(study.id)\n    const{error}=await supabase.from('studies').update({status:'closed'}).eq('id',study.id)\n    if(error)alert(error.message)\n    else await loadStudies()\n    setStoppingId(null)\n  }\n  async function deleteStudy(study:Study){\n    if(study.status==='published'){alert('모집 중인 실험은 먼저 모집을 중지한 뒤 삭제해주세요.');return}\n    if(deletingId)return"
+)
+home=home.replace(
+  '<button className="btn ghost small rh-delete" disabled={deletingId===study.id} onClick={()=>deleteStudy(study)}>{deletingId===study.id?\'삭제 중…\':\'삭제\'}</button>',
+  "{study.status==='published'?<button className=\"btn ghost small rh-delete\" disabled={stoppingId===study.id} onClick={()=>stopStudy(study)}>{stoppingId===study.id?'중지 중…':'모집 중지'}</button>:<button className=\"btn ghost small rh-delete\" disabled={deletingId===study.id} onClick={()=>deleteStudy(study)}>{deletingId===study.id?'삭제 중…':'삭제'}</button>}"
+)
+fs.writeFileSync(homeFile,home)
 
 // Keep the date-window header type-safe before Next.js type checking.
 const scheduleFile='src/components/ScheduleUnified.tsx'
