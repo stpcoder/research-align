@@ -204,7 +204,7 @@ Current cross-workflow actions include:
 - applicant detail → `일정 조율하기`
 - applicant detail → `연락하기`
 - schedule → `이 참가자에게 연락`
-- contact → `일정에서 보기`
+- contact → `일정 보기`
 - contact → `신청 내용`
 
 Selecting an unmatched pre-application inquiry clears participant context so an unrelated applicant is not silently carried across.
@@ -294,7 +294,7 @@ Conservative inquiry/application matching order:
 
 Ambiguous matches are not forced.
 
-## 12. Contact state model
+## 12. Contact state model and UX
 
 Supabase tables `contact_threads` and `contact_messages` are the communication source of truth.
 
@@ -306,11 +306,34 @@ Thread statuses:
 
 Sources include `participant` and `public_inquiry`.
 
-The contact UI prioritizes pending conversations, then recency, and supports participant/inquiry search.
+The contact UI prioritizes pending conversations, then recency, and supports participant/inquiry search. For a selected participant, Contact keeps the shared participant context and exposes `일정 보기` and `신청 내용` shortcuts. Automatic schedule email is recorded in conversation history but does not falsely clear a pending participant inquiry.
 
-For a selected participant, Contact keeps the shared participant context and exposes `일정에서 보기` and `신청 내용` shortcuts. Automatic schedule email is recorded in conversation history but does not falsely clear a pending participant inquiry.
+### Inline schedule context
 
-A remaining P1 UX opportunity is to show the participant's current schedule and submitted availability directly inside the conversation view so the researcher can compose a coordination email without mentally switching between schedule and contact context.
+A matched participant's conversation includes a compact `일정` section inside the existing conversation surface. It does **not** reproduce the full timetable.
+
+For every availability/session field, Contact shows one plain row:
+
+- session name
+- current assignment time when assigned, otherwise a preview of the participant's submitted candidate times
+- semantic status badge (`확정`, `완료`, `불참`, `미정`)
+
+Unassigned candidate previews are sorted by submitted preference rank, show at most three concrete slots, and collapse additional slots to `+N`. Detailed conflict checking and schedule modification remain in the Schedule view.
+
+The schedule context intentionally uses simple horizontal separation within the existing surface rather than another nested card, colored state rail, or left-edge-only highlight.
+
+### Contact visual hierarchy
+
+Mailbox/provider identity is secondary utility UI rather than the page's dominant state panel. When connected, the header shows the research mailbox address, useful last-sync time, and one sync action. When not connected, it shows one `연구용 이메일 연결` action.
+
+Repeated state wording is intentionally minimized:
+
+- pending conversations use one `답변 필요` badge instead of repeating `대기 / 답변 필요 / 새 문의`
+- recipient email is shown in the participant header rather than repeated in the composer footer
+- successful provider sends are surfaced as `이메일을 보냈습니다.` rather than exposing transport status text
+- empty-state and source labels are short and task-oriented
+
+Admin UI should continue to prefer spacing, typography, subtle full-surface state, and dividers over ornamental cards or a colored left edge used as the only status cue.
 
 ## 13. ClawMail email provider
 
@@ -464,9 +487,10 @@ Production still contains demo/test studies and synthetic participants. Clean th
 
 ### UX follow-up
 
-1. Show current schedule and submitted availability directly inside the Contact conversation for the selected participant.
-2. Consider persisted schedule proposals (`proposed -> confirmed`) if researcher/participant negotiation needs explicit acceptance tracking.
-3. Review whether participant context should eventually be represented in route structure rather than only a query parameter.
+1. Run an authenticated visual/click audit of participant-centered Applicant → Schedule → Contact workflows when a researcher session is available.
+2. Add further coordination UI only when it removes a demonstrated workflow gap; avoid duplicating schedule state or explanatory copy across surfaces.
+3. Consider persisted schedule proposals (`proposed -> confirmed`) only if real researcher/participant negotiation needs explicit acceptance tracking.
+4. Review whether participant context should eventually be represented in route structure rather than only a query parameter.
 
 ### Code maintainability
 

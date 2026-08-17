@@ -12,6 +12,100 @@ Rules:
 
 ---
 
+## 2026-08-17 KST — Contact schedule context added while simplifying the messaging UI
+
+### Goal
+
+Complete the next participant-centered UX layer without turning Contact into another schedule dashboard.
+
+The design constraint for this work was explicit: useful context should be added only if it removes task switching, while redundant copy, nested cards, decorative state boxes, and left-edge-only highlights should be avoided.
+
+### CHANGE-20260817-011 — compact schedule context inside Contact
+
+Source commit:
+
+- `86e321f56db888a30dca57ec4b69bcee345eb07a` — `feat(contact): show compact schedule context`
+
+Behavior:
+
+- Contact now loads current-study assignments with participants and contact threads
+- the selected matched participant's conversation shows one inline `일정` section
+- every configured session is one compact row: session name, current assignment time or submitted availability preview, semantic status
+- unassigned availability is ordered by preference rank
+- at most three candidate slots are displayed; additional slots collapse to `+N`
+- the detailed timetable remains in Schedule via `일정 보기`
+- the context is separated with normal horizontal dividers inside the existing conversation surface; no nested card or colored side rail was added
+
+### CHANGE-20260817-012 — Contact chrome/copy reduction
+
+Source commit:
+
+- `283065e65869da26b174470dc76edd8563a20aeb` — `feat(contact): simplify messaging chrome`
+
+Behavior:
+
+- removed the multi-line mailbox status panel and status dot
+- connected mailbox UI is reduced to address, useful last-sync time, and one sync action
+- disconnected state is one `연구용 이메일 연결` action
+- removed duplicate `대기 / 답변 필요 / 새 문의 / 응대 중` wording; pending is represented once as `답변 필요`
+- shortened source/navigation labels and empty-state copy
+- successful send UI no longer exposes provider-return status text
+- removed duplicate recipient email from the composer footer
+- kept one clear primary composer action: `이메일 보내기`
+
+### Production rollout
+
+The exact current main snapshot after both source changes and their initial ledger entries was deployed:
+
+- deploy source SHA: `a077cb8f0164df9a979cf6f7347e10b0917978dc`
+- deploy-control job: `0abc2c43-a852-47ea-aaf0-057014db2653`
+- pg_net request: `123`
+- Vercel deployment: `dpl_ACQXqHwb12F6K2mfp4ucAcczamT6`
+- job status: `succeeded`
+- Vercel state: `READY`
+- production URL: `https://research-align.vercel.app`
+- snapshot source: `github-codeload`
+
+The READY deployment verifies the Next.js/TypeScript production build for both Contact changes.
+
+### Backend impact
+
+- no database schema migration
+- no trigger/RLS/function change
+- no Edge Function change
+- ClawMail and schedule-notify contracts unchanged
+- existing assignments are read by Contact; scheduling writes/invariants remain in the Schedule/DB path
+
+### Verification boundary
+
+This remained a connector-only session with no authenticated researcher browser context.
+
+Verified:
+
+- source commits and ledger mappings
+- deploy-control job success
+- exact deployed SHA
+- Vercel READY production build
+
+Not run:
+
+- authenticated visual inspection of the Contact conversation
+- clicking between Contact and Schedule in a researcher session
+- actual mailbox send/sync operations during this UX change
+
+### Durable UI principle
+
+For researcher/admin UI, continue to prefer:
+
+- one clear task/action per region
+- spacing, typography, dividers, and subtle full-surface selection before decoration
+- short task-oriented copy
+- one representation of a state rather than multiple synonymous labels
+
+Avoid using a colored left border as the only status/selection signal, and avoid creating another card simply because a new piece of contextual data is added.
+
+---
+
 ## 2026-08-17 KST — Researcher participant-coordination UX P0 completed
 
 ### Goal
@@ -108,9 +202,7 @@ A direct environment fetch also could not resolve the production hostname from t
 
 ### Durable product state / next UX layer
 
-`docs/PROJECT_STATE.md` now records participant-centered navigation, explicit change mode, time-aware completion/no-show actions, and the two-branch coordination flow.
-
-The next P1 UX improvement is to place a participant's current schedule and submitted availability directly inside Contact so the researcher can compose a coordination email without mentally switching back to the timetable. A formal persisted schedule proposal/acceptance state remains a later P2 possibility.
+`docs/PROJECT_STATE.md` records participant-centered navigation, explicit change mode, time-aware completion/no-show actions, and the two-branch coordination flow.
 
 ---
 
@@ -349,9 +441,9 @@ Pure ledger and final handoff bookkeeping commits are exempt from their own ledg
 - created policy commit `d8b63b...` and fast-forwarded `main`
 - committed `CHANGE-20260817-002` bookkeeping as `efeddbd...`
 - re-queried live Supabase `deploy_control_state`
-- production remains `READY` on `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
-- production runtime commit remains `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
-- no runtime deployment was triggered because these were development-process documentation changes only
+- production remained `READY` on deployment `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
+- production runtime commit remained `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
+- no production deployment was triggered because these were development-process documentation changes only
 
 ---
 
@@ -406,8 +498,8 @@ This was deliberately created as one atomic multi-file commit using a Git tree b
 - fast-forwarded `main` to `babaa5dde98921299e79bff9fd1040cbb4ecb6b5`
 - re-read branch metadata and confirmed `main` points to `babaa5...`
 - re-queried live Supabase `deploy_control_state`
-- confirmed production remains `READY` on deployment `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
-- confirmed production still runs runtime commit `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
+- confirmed production remained `READY` on deployment `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
+- confirmed production still ran runtime commit `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
 - no production deployment was triggered because the changes are repository-process documentation only
 
 ### Durable operating rule established
