@@ -1,6 +1,6 @@
 # Research Align — Latest Session Handoff
 
-Handoff prepared: **2026-08-17 17:58 KST**
+Handoff prepared: **2026-08-17 18:52 KST**
 
 Read root `AGENTS.md` first, then this file, `docs/PROJECT_STATE.md`, `docs/WORKSPACE_PROTOCOL.md`, `docs/SESSION_PROTOCOL.md`, and `docs/CHANGE_LEDGER.md`.
 
@@ -9,221 +9,314 @@ Read root `AGENTS.md` first, then this file, `docs/PROJECT_STATE.md`, `docs/WORK
 - repository: `stpcoder/research-align`
 - active branch: `main`
 - work status: `clean`
-- session topic: stop-before-delete lifecycle, publish autosave, and deployment-control recovery
+- session topic: participant-centered researcher coordination UX P0
 - next session should continue branch: `main`
-- no source/runtime feature is partially implemented
+- no runtime feature is partially implemented
 - no local-only product code is being carried forward
 
 ### Workspace hydration state
 
 - preferred workspace path: `/mnt/data/research-align`
 - workspace mode: `connector-only`
-- local canonical checkout available: no trusted full checkout
+- trusted full local checkout: none
 - local-only state remaining: none
 - safe to lose current mount: yes
 - local build environment available: no
-- production build verification instead came from the successful Vercel deployment
+- production build validation came from Vercel deployment
 
 ## 2. Exact source state
 
-GitHub `main` immediately before the final HANDOFF + DEVELOPMENT_LOG commit:
+GitHub `main` immediately before the final PROJECT_STATE + DEVELOPMENT_LOG + HANDOFF bookkeeping commit:
 
-`8c3a280465e1131cca6ad8c38bb91bf2c2fdd641`
+`6c21935c9e28994ff4699ec3807f77e3a58c852e`
 
 Message:
 
-`docs(state): record lifecycle and deploy fallback`
+`docs(ledger): record researcher UX rollout`
 
-The final handoff commit containing this file and the new DEVELOPMENT_LOG entry will be newer than `8c3a280...`; the next session must query live `main` HEAD.
+The final documentation commit containing this handoff will be newer than `6c21935...`; the next session must query live `main` HEAD.
 
-### Last production-deployed source
+### Production/source distinction
 
 Production currently runs exact source snapshot:
 
-`79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`
+`a68c2439c66ecd663466a746adb37f085f5c57c0`
 
-GitHub `main` is ahead only by documentation/bookkeeping commits:
+That deployed commit contains all three researcher UX source changes plus their initial per-change ledger entries.
 
-- `f4d026380590660b7c72835269bc2cc30dcab70b` — ledger rollout-state update
-- `8c3a280465e1131cca6ad8c38bb91bf2c2fdd641` — durable PROJECT_STATE update
-- final handoff/log commit — created after this document is written
+GitHub `main` is ahead only by documentation/bookkeeping after production:
 
-There is **no unexplained runtime drift**. All application and deploy-control source changes required for this session are ancestors of production commit `79dfc2cd...`.
+- `6c21935c9e28994ff4699ec3807f77e3a58c852e` — update CHANGE-008/009/010 with production rollout result
+- final documentation commit — PROJECT_STATE + DEVELOPMENT_LOG + this HANDOFF
+
+There is **no unexplained runtime drift**.
 
 ### Meaningful source commits created this session
 
-1. `19a3d9dbd51040d55d9617485f212f4597231447` — `fix(study): require stop before delete`
-2. `1bde332ad88126b2eceb5361243c392be960466e` — `fix(form): save changes before publishing`
-3. `37d1be727d73824abd7d3b10b47023a78b8da5b6` — `ops(deploy): add codeload snapshot fallback`
-4. `69bc18301e6964c04dfccefc40a0c88a7365a0b7` — `fix(deploy): normalize codeload archive root`
+1. `c9f20ca7d63fc1e734e597119113fdfdd93f2ac2` — `feat(ops): preserve participant context across tabs`
+2. `f78ff1c4a1a6bfb9830be11f5086d8037cd59b79` — `feat(schedule): clarify schedule action hierarchy`
+3. `70af27d5fb1feafc748749ecf630c17116027f82` — `feat(schedule): add participant time coordination flow`
+
+### Ledger bookkeeping sequence
+
+- `73c5d8c8426547968f8e63f5d05955ad96c2d005` — record CHANGE-008
+- `7dee86fbc8bd4e7d848838c1c6cf0e04e3ea233f` — record CHANGE-009
+- `a68c2439c66ecd663466a746adb37f085f5c57c0` — record CHANGE-010; this exact commit was production-deployed
+- `6c21935c9e28994ff4699ec3807f77e3a58c852e` — attach final rollout results to CHANGE-008/009/010
 
 ### Granular change ledger mapping
 
 | Change ID | Source commit | Latest state |
 |---|---|---|
-| `CHANGE-20260817-004` | `19a3d9dbd51040d55d9617485f212f4597231447` | production-deployed |
-| `CHANGE-20260817-005` | `1bde332ad88126b2eceb5361243c392be960466e` | production-deployed |
-| `CHANGE-20260817-006` | `37d1be727d73824abd7d3b10b47023a78b8da5b6` | verified |
-| `CHANGE-20260817-007` | `69bc18301e6964c04dfccefc40a0c88a7365a0b7` | verified |
+| `CHANGE-20260817-008` | `c9f20ca7d63fc1e734e597119113fdfdd93f2ac2` | production-deployed |
+| `CHANGE-20260817-009` | `f78ff1c4a1a6bfb9830be11f5086d8037cd59b79` | production-deployed |
+| `CHANGE-20260817-010` | `70af27d5fb1feafc748749ecf630c17116027f82` | production-deployed |
 
-Every meaningful source commit from this session has a corresponding ledger entry.
+Every meaningful source commit from this session has exactly one corresponding ledger entry.
 
 ## 3. User-facing behavior now deployed
 
-### Study stop/delete lifecycle
+### A. Participant context persists across work areas
 
-```text
-published -> 모집 중지 -> closed -> 삭제
-```
+Researcher participant context is URL-backed:
 
-- a published study shows `모집 중지` rather than direct delete
-- stopping writes `studies.status = closed`
-- after stop, `삭제` is available
-- delete still requires typing the exact study title
-- a defensive delete guard refuses a still-published study
-- closed studies can be reopened via `모집 재개`
+`?participant=<response_id>`
 
-### Publish autosave
+Applicant, Schedule, and Contact prefer that participant when they mount.
 
-When clicking `모집 시작` or `모집 재개`:
+Cross-workflow actions now exist:
 
-- if the unified Form Builder is dirty, its existing `save()` is invoked first
-- publishing waits for dirty state to clear
-- if save/validation fails and dirty remains, publishing is aborted
-- status changes to `published` only after the save checkpoint
+- 신청자 → `일정 조율하기`
+- 신청자 → `연락하기`
+- 일정 → `이 참가자에게 연락`
+- 연락 → `일정에서 보기`
+- 연락 → `신청 내용`
 
-This addresses the reported case where a researcher edits a new project, clicks publish without manual save, returns home, and finds that the latest edits were not actually published.
+Selecting an unmatched public inquiry clears the participant query context.
+
+`src/lib/researcherNavigation.ts` owns the small navigation helper. The top-level StudyWorkspace listener is currently injected by `scripts/prebuild-ui-copy.mjs`.
+
+### B. Schedule actions are explicit and safer
+
+For a new participant-provided slot:
+
+`시간 선택 -> 일정 확정하고 안내 보내기`
+
+For an already-confirmed assignment:
+
+`시간 변경 -> 새 시간 선택 -> 일정 변경하고 안내 보내기`
+
+A researcher cannot replace an existing confirmed assignment merely by clicking a different grid cell while not in change/agreed-time mode.
+
+For future confirmed sessions:
+
+- `완료 처리` and `불참 처리` are hidden
+- `시간 변경` remains available
+- `일정 취소` is destructive
+- failed mail retry becomes the primary recovery action
+
+After the session end time:
+
+- `완료 처리`
+- `불참 처리`
+
+become available.
+
+### C. Time coordination is task-oriented
+
+The old `직접 협의한 시간 지정` entry point is replaced by:
+
+`다른 시간 조율하기`
+
+It branches into:
+
+1. `이메일로 시간 협의`
+   - opens Contact for the same participant
+   - no assignment is modified
+2. `이미 합의한 시간이 있음`
+   - enables explicit agreed-time slot selection
+   - uses existing `scheduling_source = admin_agreed`
+   - confirmation label is `합의한 시간 확정하고 안내 보내기`
+
+UI copy says `별도 합의` / `합의한 시간`; database audit vocabulary remains unchanged.
 
 ## 4. Production application state
 
-Live `public.deploy_control_state` after the successful retry:
+Latest live `public.deploy_control_state`:
 
 - Vercel project ID: `prj_m1b582jShPhKBRfxY8GLDxAPFrGQ`
-- production deployment ID: `dpl_namA9eDG4cEDWMDEqhwx8exTLxXZ`
+- deployment ID: `dpl_G74DQabUEgvmCQsxXezPdbuhs7ef`
 - status: `READY`
 - production URL: `https://research-align.vercel.app`
-- production commit: `79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`
+- production commit: `a68c2439c66ecd663466a746adb37f085f5c57c0`
 - snapshot source: `github-codeload`
-- state updated: `2026-08-17 17:53:05 KST`
-- errorCode/errorMessage: null
+- state updated: `2026-08-17 18:46:38 KST`
 
-The Vercel build succeeded with the build-time transformation containing the two product fixes.
+Deploy-control job:
 
-## 5. Supabase / deploy job state
+- job ID: `f89494c6-a62b-4d73-bc31-48fbb36da4bd`
+- pg_net request: `122`
+- status: `succeeded`
+- deployment: `dpl_G74DQabUEgvmCQsxXezPdbuhs7ef`
+- Vercel state: `READY`
+
+## 5. Supabase state
 
 - project: `rgwqsqeikebwunbdnbex`
-- no DB schema migration was required
-- existing study status constraint already supports `draft | published | closed`
+- no schema migration was required this session
+- no PostgreSQL function/trigger/RLS change was made
+- existing owner-wide scheduling constraints remain the enforcement layer
+- existing `scheduling_source = participant_selection | admin_agreed` model is unchanged
 
-Deploy attempts:
+### Migrations involved this session
 
-1. `e0bf2301-cb19-455e-bfd4-c9055df98ec1` / request `119`
-   - final: `failed`
-   - GitHub unauthenticated REST rate limit before source snapshot
-2. `f4dbac77-d196-47ea-8e86-9edc81a2a84e` / request `120`
-   - final: `failed`
-   - deployment `dpl_2x8TvtPSYyDCvZXT3mcx3P2PhJrk`
-   - Vercel `missing_pages_app` caused by first codeload archive-root parser
-3. `5f82cd22-5b48-4843-be49-7ec9e075a546` / request `121`
-   - final: `succeeded`
-   - deployment `dpl_namA9eDG4cEDWMDEqhwx8exTLxXZ`
-   - Vercel `READY`
+None.
 
-The first stale job row was reconciled from misleading `running` to `failed` after its HTTP 500 result was confirmed.
+### Functions / triggers / RLS changed
+
+None.
 
 ## 6. Edge Functions
 
-### `vercel-control`
+No Edge Function was changed in this session.
 
-- source: `supabase/functions/vercel-control/index.ts`
-- live version: **4**
-- status: `ACTIVE`
-- `verify_jwt`: `false`
-- authentication: separate private high-entropy `controlKey`
+Relevant existing state:
 
-Current source snapshot behavior:
+- `schedule-notify` contract unchanged
+- `clawmail` contract unchanged
+- `vercel-control` remains live v4 with exact-SHA codeload deployment support
 
-- exact `commitSha` -> `github-codeload` snapshot
-- no exact SHA -> GitHub REST compatibility path
-- common tar root normalized before file upload
-- `package.json` required before Vercel deployment creation
-- `snapshotSource` recorded in deploy state
+### Temporary probes
 
-No temporary Edge Function/probe was created.
+None created.
 
-## 7. Verification performed
+## 7. Files/areas changed
 
-### Source / ledger
+### CHANGE-20260817-008
 
-- `[PASS]` CHANGE-004 source committed and ledgered
-- `[PASS]` CHANGE-005 source committed and ledgered
-- `[PASS]` CHANGE-006 source committed and ledgered
-- `[PASS]` CHANGE-007 source committed and ledgered
-- `[PASS]` rollout state reconciled in ledger
+- `src/lib/researcherNavigation.ts`
+- `src/components/ResponseManagerUnified.tsx`
+- `src/components/ScheduleUnified.tsx`
+- `src/components/ContactManager.tsx`
+- `scripts/prebuild-ui-copy.mjs`
 
-### Deployment / build
+### CHANGE-20260817-009
 
-- `[FAIL / diagnosed]` request 119: GitHub REST rate limit
-- `[FAIL / diagnosed]` request 120: archive-root parser -> `missing_pages_app`
-- `[PASS]` `vercel-control` v4 ACTIVE
-- `[PASS]` request 121 returned successful READY deployment
-- `[PASS]` production deployment `dpl_namA9eDG4cEDWMDEqhwx8exTLxXZ`
-- `[PASS]` deployed exact SHA `79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`
+- `src/components/ScheduleUnified.tsx`
+
+### CHANGE-20260817-010
+
+- `src/components/ScheduleUnified.tsx`
+
+No database or provider source was changed.
+
+## 8. Verification actually performed
+
+### Source / repository
+
+- `[PASS] CHANGE-008` atomic source commit created and fast-forwarded to main
+- `[PASS] CHANGE-008` granular ledger entry committed before starting CHANGE-009
+- `[PASS] CHANGE-009` source commit created and ledgered before CHANGE-010
+- `[PASS] CHANGE-010` source commit created and ledgered before production rollout
+- `[PASS]` all three meaningful source commits are ancestors of deployed SHA `a68c2439...`
+
+### Build / deployment
+
+- `[PASS]` deploy-control job `f89494c6-a62b-4d73-bc31-48fbb36da4bd` succeeded
+- `[PASS]` Vercel deployment `dpl_G74DQabUEgvmCQsxXezPdbuhs7ef` reached READY
+- `[PASS]` `deploy_control_state.details.commitSha = a68c2439c66ecd663466a746adb37f085f5c57c0`
 - `[PASS]` `snapshotSource = github-codeload`
+- `[PASS]` production Next.js/TypeScript build therefore accepted the new source and build-time workspace patch
 
-### Authenticated researcher browser E2E
+### Browser / interaction boundary
 
-- `[NOT RUN]` this session had no authenticated browser researcher context
-- the actual click sequences below were therefore not browser-automated:
-  - edit new study -> `모집 시작` without manual save -> confirm latest public form
-  - published study -> `모집 중지` -> verify `삭제` appears -> delete disposable test study
+- `[NOT RUN]` authenticated researcher cross-tab click flow
+- `[NOT RUN]` authenticated `시간 변경` interaction
+- `[NOT RUN]` authenticated `다른 시간 조율하기 -> 이메일/이미 합의` click flow
+- `[NOT RUN]` independent curl smoke test because the sandbox DNS could not resolve the production hostname
+- Vercel connector URL fetch also could not create a shareable/access URL for the canonical production domain
 
-Do not interpret READY as a claim that those authenticated click sequences were personally clicked in this session. READY verifies source transformation/build/deployment.
+Do not describe those authenticated click flows as E2E-tested until a researcher-authenticated browser context is available.
 
-## 8. Architecture changes
+## 9. Bugs/findings discovered this session
 
-`docs/PROJECT_STATE.md` was updated because durable product/deployment state changed:
+No new database or production build regression was found.
 
-- stop-before-delete lifecycle documented
-- publish autosave documented
-- `vercel-control` is now source-controlled
-- exact-SHA codeload provides deterministic snapshot/deploy without shared-IP GitHub REST rate-limit dependence
-- parser uses common-root normalization plus package.json guard
+UX finding carried forward:
 
-## 9. Known unresolved risks
+- Contact now preserves participant context and can jump back to Schedule, but the conversation itself still does not show that participant's current assignments and submitted availability.
+- That means a researcher composing a negotiation email may still need to switch mentally between Contact and Schedule even though navigation is now one click.
 
-### P0 before participant-scale pilot
+## 10. Durable product state affected by this session
 
-- ClawMail capacity/quota remains unresolved
+The application has moved from tab-local participant selection toward participant-centered research operations.
 
-### P1
+Current intended researcher mental model:
 
-- perform one authenticated production smoke test of the two new lifecycle flows when researcher browser context is available
-- build-time `scripts/prebuild-ui-copy.mjs` remains brittle technical debt
-- `main` still has no required CI/build checks or branch protection
-- production demo/test data remains
-- legacy KeyID/probe/stale docs cleanup remains
+```text
+participant selected
+  -> inspect application
+  -> schedule
+  -> contact same participant if coordination needed
+  -> return to same participant schedule
+  -> confirm/change
+  -> later complete/no-show
+```
+
+This is documented in `docs/PROJECT_STATE.md`.
+
+## 11. Known unresolved risks / backlog
+
+### P0 before real pilot
+
+- ClawMail sending capacity/quota still requires validation or upgrade.
+
+### P1 UX
+
+- show selected participant's current schedule + submitted availability directly inside Contact
+- once an authenticated researcher browser context is available, smoke-test the newly deployed cross-tab/change/coordination flows
+
+### P1 operational / maintainability
+
+- remove build-time `scripts/prebuild-ui-copy.mjs` mutation and make current StudyWorkspace/Unified behavior canonical source
+- add CI build/lint checks and branch protection
+- clean production demo/test data intentionally
+- clean legacy/probe/stale documentation after dependency review
 
 ### P2
 
-- Supabase security/index advisor hardening remains
+- consider persisted schedule proposals and participant acceptance (`proposed -> confirmed`) if negotiation should be tracked as first-class state
+- review Supabase advisor hardening/index recommendations
 
-## 10. Exact next action
+## 12. Exact next action
 
-If an authenticated researcher browser context is available:
+Primary next UX action:
 
-> Create/use a disposable study; edit title/form without manual save, click `모집 시작`, confirm DB/public form reflects the latest edits, then click `모집 중지`, confirm the home action becomes `삭제`, and delete the disposable study. Record results in CHANGE_LEDGER/HANDOFF. Do not create a new source Change ID unless a bug is found.
+> Add a compact scheduling context to the selected participant's Contact conversation: current session assignments, unresolved session(s), and participant-submitted availability, with `일정에서 보기` as the direct action. Keep the same `?participant=` context and record it as the next independent CHANGE_LEDGER item.
 
-If authenticated browser context is unavailable, the user's next requested development task can proceed; the requested changes are already production-deployed, with the missing browser-click verification remaining explicit.
+If an authenticated researcher browser context becomes available before that implementation, first run a short smoke test of CHANGE-008/009/010 and record the results in their existing ledger entries.
 
-## 11. Session documentation status
+## 13. Recovery instructions if this handoff is stale
 
-- `docs/CHANGE_LEDGER.md`: reconciled through CHANGE-007
-- `docs/PROJECT_STATE.md`: updated
-- `docs/DEVELOPMENT_LOG.md`: appended in final handoff commit
-- `docs/HANDOFF.md`: this file
-- final handoff commit: query current `main` after this file is committed
+1. query current GitHub `main`
+2. inspect commits newer than the pre-final HEAD `6c21935c9e28994ff4699ec3807f77e3a58c852e`
+3. compare meaningful source commits against `docs/CHANGE_LEDGER.md`
+4. inspect any recorded work branch before creating a new one
+5. query `deploy_control_state`
+6. production expected baseline from this session is deployment `dpl_G74DQabUEgvmCQsxXezPdbuhs7ef`, commit `a68c2439...`, READY
+7. reconstruct source/ledger/DB/Edge/deployment/verification state before editing if live state differs
 
-## 12. Suggested next-chat prompt
+## 14. Session documentation status
 
-> Continue `stpcoder/research-align`. Read `AGENTS.md` and follow the full startup protocol, including HANDOFF, PROJECT_STATE, WORKSPACE_PROTOCOL, SESSION_PROTOCOL, and CHANGE_LEDGER. Verify GitHub main and live Supabase deploy_control_state first. Production contains the stop-before-delete and publish-autosave fixes. If an authenticated researcher browser context is available, run the smoke test in HANDOFF before another lifecycle refactor. Commit and ledger every meaningful new modification separately.
+- CHANGE_LEDGER reconciled with all meaningful source commits: yes
+- Change IDs created: `CHANGE-20260817-008`, `CHANGE-20260817-009`, `CHANGE-20260817-010`
+- rollout status attached to those entries: yes
+- PROJECT_STATE prepared for update: yes
+- DEVELOPMENT_LOG prepared for append: yes
+- workspace local-only state: none
+- safe to lose current mount: yes
+- final handoff commit: query live main after this file is committed
+
+## 15. Suggested next-chat prompt
+
+> Continue `stpcoder/research-align`. Read root `AGENTS.md` and follow the full startup/workspace protocol. Read `docs/HANDOFF.md`, `docs/PROJECT_STATE.md`, `docs/WORKSPACE_PROTOCOL.md`, `docs/SESSION_PROTOCOL.md`, and `docs/CHANGE_LEDGER.md`. Verify current GitHub main and live Supabase `deploy_control_state`. Continue from HANDOFF's exact next action. Preserve `?participant=` participant context and keep one logical source commit + one granular ledger entry per meaningful change. Finish with production verification and a new handoff.

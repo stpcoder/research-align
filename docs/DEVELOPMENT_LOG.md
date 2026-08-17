@@ -12,6 +12,108 @@ Rules:
 
 ---
 
+## 2026-08-17 KST — Researcher participant-coordination UX P0 completed
+
+### Goal
+
+Rework the researcher experience around the real operational unit — one participant — rather than making `신청자`, `일정`, and `연락` behave like isolated tools.
+
+The implementation focused on three P0 UX problems identified in the preceding audit:
+
+1. preserve the same participant while moving between applicant detail, scheduling, and contact
+2. make schedule modification/status actions explicit and safer
+3. replace implementation-oriented direct scheduling with a researcher-facing time-coordination decision flow
+
+### CHANGE-20260817-008 — shared participant context
+
+Source commit:
+
+- `c9f20ca7d63fc1e734e597119113fdfdd93f2ac2` — `feat(ops): preserve participant context across tabs`
+
+Behavior:
+
+- active participant is stored in `?participant=<response_id>`
+- applicant, schedule, and contact restore that participant on mount
+- participant selection updates the shared URL context
+- applicant detail exposes `일정 조율하기` and `연락하기`
+- schedule exposes `이 참가자에게 연락`
+- contact exposes `일정에서 보기` and `신청 내용`
+- unmatched public inquiry selection clears participant context
+- StudyWorkspace listens for `studyform:navigate` and changes tabs without losing the participant query parameter
+
+New helper:
+
+- `src/lib/researcherNavigation.ts`
+
+### CHANGE-20260817-009 — schedule action hierarchy and safety
+
+Source commit:
+
+- `f78ff1c4a1a6bfb9830be11f5086d8037cd59b79` — `feat(schedule): clarify schedule action hierarchy`
+
+Behavior:
+
+- a confirmed schedule cannot be accidentally replaced by clicking another timetable cell
+- the researcher must first enter explicit `시간 변경` mode
+- the old assignment remains intact until the replacement is explicitly confirmed
+- primary confirm labels now communicate the email side effect: `일정 확정하고 안내 보내기` / `일정 변경하고 안내 보내기`
+- future sessions do not show `완료/불참` as routine actions
+- `완료 처리` / `불참 처리` appear after the session end time
+- `일정 취소` is destructive
+- failed schedule-mail retry becomes the primary recovery action
+
+### CHANGE-20260817-010 — participant time coordination flow
+
+Source commit:
+
+- `70af27d5fb1feafc748749ecf630c17116027f82` — `feat(schedule): add participant time coordination flow`
+
+Behavior:
+
+- `직접 협의한 시간 지정` was replaced by `다른 시간 조율하기`
+- opening coordination does not immediately unlock arbitrary empty cells
+- the researcher chooses one of:
+  - `이메일로 시간 협의` → Contact for the same participant
+  - `이미 합의한 시간이 있음` → explicit agreed-time selection mode
+- UI language now says `별도 합의` / `합의한 시간` while preserving the database audit value `scheduling_source = admin_agreed`
+- change mode, coordination-choice mode, and agreed-time selection mode are mutually exclusive and reset together
+
+### Production rollout
+
+After all three source commits and their individual ledger entries were present, the exact current main snapshot was deployed:
+
+- deploy source SHA: `a68c2439c66ecd663466a746adb37f085f5c57c0`
+- deploy-control job: `f89494c6-a62b-4d73-bc31-48fbb36da4bd`
+- pg_net request: `122`
+- Vercel deployment: `dpl_G74DQabUEgvmCQsxXezPdbuhs7ef`
+- job status: `succeeded`
+- Vercel state: `READY`
+- production URL: `https://research-align.vercel.app`
+- `deploy_control_state.details.commitSha`: `a68c2439c66ecd663466a746adb37f085f5c57c0`
+- `deploy_control_state.details.snapshotSource`: `github-codeload`
+
+The successful Vercel build verifies the Next.js/TypeScript production build including the build-time `StudyWorkspace` navigation patch.
+
+### Verification boundary
+
+This session remained `connector-only`; there was no trusted local checkout and no authenticated researcher browser session.
+
+Therefore:
+
+- production build / READY / exact SHA: verified
+- authenticated cross-tab clicks, schedule-change clicks, and coordination clicks: **not browser-automated in this session**
+- no claim is made that those authenticated click flows were E2E-tested
+
+A direct environment fetch also could not resolve the production hostname from the sandbox DNS; this does not conflict with the Vercel READY/control-plane result but prevents an independent curl smoke check here.
+
+### Durable product state / next UX layer
+
+`docs/PROJECT_STATE.md` now records participant-centered navigation, explicit change mode, time-aware completion/no-show actions, and the two-branch coordination flow.
+
+The next P1 UX improvement is to place a participant's current schedule and submitted availability directly inside Contact so the researcher can compose a coordination email without mentally switching back to the timetable. A formal persisted schedule proposal/acceptance state remains a later P2 possibility.
+
+---
+
 ## 2026-08-17 KST — Stop-before-delete, publish autosave, and deployment control recovery
 
 ### User-facing goals

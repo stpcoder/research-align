@@ -17,6 +17,8 @@ Research Align / StudyForm is a researcher-operated workspace for human-subject 
 - schedule confirmation/change/cancellation email
 - operational dashboard and failure attention states
 
+The researcher workflow is participant-centered: when a researcher moves among applicant details, schedule coordination, and contact, the selected participant should remain the active operational context rather than forcing the researcher to find the same person again.
+
 ## 2. Production topology
 
 ```text
@@ -70,6 +72,7 @@ Primary current implementation surfaces:
 - `src/components/PublicInquiryWidget.tsx`
 - `src/components/admin/*`
 - `src/app/s/[slug]/page.tsx`
+- `src/lib/researcherNavigation.ts`
 - `src/lib/types.ts`
 - `supabase/functions/*`
 - `supabase/migrations/*`
@@ -186,7 +189,29 @@ Availability submission is a request rather than an immediate reservation. Parti
 
 Busy intervals come from `get_public_busy_intervals(study_id)`. The form re-fetches busy intervals immediately before submission to reject slots that became unavailable while the page was open.
 
-## 8. Researcher-wide scheduling model
+## 8. Researcher participant context and navigation
+
+Applicant details, scheduling, and participant contact share one operational participant context.
+
+The active response ID is reflected in the researcher URL as:
+
+`?participant=<response_id>`
+
+`src/lib/researcherNavigation.ts` owns the small client-side navigation contract. The three participant-oriented work areas restore this URL value before falling back to their normal first/default participant selection.
+
+Current cross-workflow actions include:
+
+- applicant detail → `일정 조율하기`
+- applicant detail → `연락하기`
+- schedule → `이 참가자에게 연락`
+- contact → `일정에서 보기`
+- contact → `신청 내용`
+
+Selecting an unmatched pre-application inquiry clears participant context so an unrelated applicant is not silently carried across.
+
+The top-level StudyWorkspace listens for the internal `studyform:navigate` event and changes tabs without discarding the participant query parameter. This behavior is currently injected by the build-time rewrite layer and should move into canonical workspace source when that debt is removed.
+
+## 9. Researcher-wide scheduling model
 
 Scheduling is resource-constrained across all studies owned by the same researcher.
 
@@ -213,7 +238,34 @@ Cancellation preserves the row. `(response_id, session_key)` is unique. Legacy `
 
 The UI additionally supports configured session order, max sessions/day, participant-selected scheduling, admin-agreed direct scheduling, search/filtering, lifecycle states, and 4-date schedule-window navigation.
 
-## 9. Responses and participant detail
+### Schedule action hierarchy
+
+For an unassigned session, selecting a valid participant-provided slot creates a pending selection bar. The primary confirmation CTA explicitly states the side effect: `일정 확정하고 안내 보내기`.
+
+For an already-confirmed session, replacement slots are not clickable by default. The researcher must first choose `시간 변경`, then select the replacement, then confirm `일정 변경하고 안내 보내기`. The current assignment remains intact until the replacement is explicitly confirmed.
+
+For future confirmed sessions, completion/no-show actions are intentionally not prominent. `완료 처리` and `불참 처리` appear only once the session end time has passed. `일정 취소` is styled as a destructive action. If schedule email delivery failed, `안내 다시 보내기` becomes the primary recovery action.
+
+### Participant time coordination
+
+When participant-submitted slots do not work, the researcher uses `다른 시간 조율하기` rather than directly enabling arbitrary empty slots.
+
+The coordination decision has two branches:
+
+1. `이메일로 시간 협의`
+   - opens Contact for the same participant
+   - does not create or change an assignment
+2. `이미 합의한 시간이 있음`
+   - enters an explicit agreed-time selection mode
+   - empty conflict-free slots become selectable
+   - confirmation uses the existing `admin_agreed` scheduling source and `agreement_confirmed_at`
+   - the final CTA is `합의한 시간 확정하고 안내 보내기`
+
+Change mode, coordination options, and agreed-time mode are mutually exclusive so the researcher can see what operational mode they are in.
+
+This is not yet a formal proposal/acceptance state machine. A future enhancement may add persisted schedule proposals and participant acceptance tracking.
+
+## 10. Responses and participant detail
 
 Participant management shows submitted answers, availability, preference ranks, schedule history/status, and contact state.
 
@@ -224,9 +276,11 @@ Current schedule labels:
 - `no_show` → 불참
 - `cancelled` → 취소
 
+The selected participant header also provides direct workflow actions to schedule or contact that same participant.
+
 CSV and JSON export are supported.
 
-## 10. Public inquiry system
+## 11. Public inquiry system
 
 A participant can ask an email inquiry before applying.
 
@@ -240,7 +294,7 @@ Conservative inquiry/application matching order:
 
 Ambiguous matches are not forced.
 
-## 11. Contact state model
+## 12. Contact state model
 
 Supabase tables `contact_threads` and `contact_messages` are the communication source of truth.
 
@@ -254,9 +308,11 @@ Sources include `participant` and `public_inquiry`.
 
 The contact UI prioritizes pending conversations, then recency, and supports participant/inquiry search.
 
-Automatic schedule email is recorded in conversation history but does not falsely clear a pending participant inquiry.
+For a selected participant, Contact keeps the shared participant context and exposes `일정에서 보기` and `신청 내용` shortcuts. Automatic schedule email is recorded in conversation history but does not falsely clear a pending participant inquiry.
 
-## 12. ClawMail email provider
+A remaining P1 UX opportunity is to show the participant's current schedule and submitted availability directly inside the conversation view so the researcher can compose a coordination email without mentally switching between schedule and contact context.
+
+## 13. ClawMail email provider
 
 ClawMail is the current email transport.
 
@@ -268,7 +324,7 @@ Known risk: runtime testing encountered a provider daily send limit of 5. Provid
 
 Provider failure does not roll back scheduling state.
 
-## 13. Schedule notification subsystem
+## 14. Schedule notification subsystem
 
 `notifications` audits schedule-mail delivery.
 
@@ -288,13 +344,13 @@ Statuses:
 
 Messages can include date/time, duration, location, and participant instructions.
 
-## 14. SMS and Google Calendar
+## 15. SMS and Google Calendar
 
 SMS is not a current product feature. Phone remains only as a manual researcher contact field; legacy DB enum values may remain for compatibility.
 
 Google Calendar integration was removed. Remaining `google-calendar` and `google-calendar-oauth` deployments are disabled JWT-required HTTP 410 stubs and must not be treated as active integration.
 
-## 15. Deployment control plane
+## 16. Deployment control plane
 
 Primary production deployment is controlled from Supabase rather than relying on a normal Vercel GitHub App push integration.
 
@@ -310,7 +366,7 @@ operator / ChatGPT
   -> deploy_control_state
 ```
 
-`vercel-control` is now source-controlled at:
+`vercel-control` is source-controlled at:
 
 `supabase/functions/vercel-control/index.ts`
 
@@ -353,13 +409,13 @@ The Vercel bootstrap credential was rotated; the bootstrap token is recorded as 
 
 The top-level ChatGPT/Vercel connector may lack permission to list/inspect this team project even while the Supabase control plane is healthy. Never create a duplicate project because of connector visibility; use `deploy_control_state` first.
 
-## 16. GitHub Actions
+## 17. GitHub Actions
 
 `.github/workflows/vercel-control.yml` is a manual fallback, not the primary deployment mechanism.
 
 `main` currently has no required build/lint checks or branch protection. This remains a hardening task.
 
-## 17. Edge Functions
+## 18. Edge Functions
 
 Core operational functions:
 
@@ -370,7 +426,7 @@ Core operational functions:
 
 Several old bootstrap/probe/removed-integration functions can still appear in the function list but intentionally return HTTP 410 and require JWT where appropriate. Function-list ACTIVE status alone therefore does not imply an active product capability; inspect function bodies.
 
-## 18. Core database objects
+## 19. Core database objects
 
 Main public tables:
 
@@ -393,11 +449,11 @@ Private operational data includes:
 
 RLS is enabled on exposed application tables.
 
-## 19. Production/test data state
+## 20. Production/test data state
 
 Production still contains demo/test studies and synthetic participants. Clean this deliberately before a real participant pilot; do not delete test/demo data as an incidental side effect of unrelated feature development.
 
-## 20. Known technical debt / hardening backlog
+## 21. Known technical debt / hardening backlog
 
 ### High priority before real pilot
 
@@ -405,6 +461,12 @@ Production still contains demo/test studies and synthetic participants. Clean th
 2. Add CI build/lint gates and branch protection for `main`.
 3. Clean production demo/test data intentionally.
 4. Remove/archive unnecessary legacy/probe infrastructure after dependency review.
+
+### UX follow-up
+
+1. Show current schedule and submitted availability directly inside the Contact conversation for the selected participant.
+2. Consider persisted schedule proposals (`proposed -> confirmed`) if researcher/participant negotiation needs explicit acceptance tracking.
+3. Review whether participant context should eventually be represented in route structure rather than only a query parameter.
 
 ### Code maintainability
 
@@ -419,7 +481,7 @@ Production still contains demo/test studies and synthetic participants. Clean th
 3. Consider Supabase leaked-password protection.
 4. Add useful indexes including `contact_threads.response_id`, `notifications.response_id`, and `studies.owner_id` as scale requires.
 
-## 21. Definition of a production-ready change
+## 22. Definition of a production-ready change
 
 A production behavior change is complete only when all applicable layers are known:
 
