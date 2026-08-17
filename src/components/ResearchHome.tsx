@@ -3,6 +3,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { FormField, ResponseRow, Study } from '@/lib/types'
+import {
+  AdminActionRow,
+  AdminActions,
+  AdminButton,
+  AdminLinkButton,
+  AdminMetric,
+  AdminMetricStrip,
+  AdminPageHeader,
+  AdminSectionHeader,
+  AdminSurface,
+  StatusBadge,
+} from '@/components/admin/AdminUI'
 
 type Assignment={id:string;study_id:string;response_id:string;session_key:string;session_label:string;starts_at:string;ends_at:string;status:string}
 type Thread={id:string;study_id:string;response_id:string|null;status:string;last_message_at:string|null}
@@ -22,6 +34,7 @@ export default function ResearchHome({user,studies,setStudy,setTab,loadStudies}:
   const[notifications,setNotifications]=useState<Notification[]>([])
   const[loading,setLoading]=useState(false)
   const[deletingId,setDeletingId]=useState<string|null>(null)
+  const[stoppingId,setStoppingId]=useState<string|null>(null)
   const studyIds=useMemo(()=>studies.map(s=>s.id),[studies])
   const studyKey=studyIds.join('|')
   const studyMap=useMemo(()=>new Map(studies.map(s=>[s.id,s])),[studies])
@@ -58,7 +71,17 @@ export default function ResearchHome({user,studies,setStudy,setTab,loadStudies}:
   function open(study:Study,tab='form'){setStudy(study);setTab(tab)}
   async function createSample(){if(loading)return;setLoading(true);const{data,error}=await supabase.rpc('create_demo_study');if(error)alert(error.message);else{await loadStudies();if(data){const{data:s}=await supabase.from('studies').select('*').eq('id',data).single();if(s)open(s as Study,'schedule')}}setLoading(false)}
   async function createStudy(){if(loading)return;setLoading(true);const slug=`study-${Math.random().toString(36).slice(2,8)}`;const{data,error}=await supabase.from('studies').insert({owner_id:user.id,title:'새 실험',slug,description:'',form_config:{fields:freshFields()},scheduling_config:{maxSessionsPerDay:1}}).select().single();setLoading(false);if(error)alert(error.message);else open(data as Study,'form')}
+  async function stopStudy(study:Study){
+    if(stoppingId)return
+    if(!window.confirm(`“${study.title}” 참가자 모집을 중지할까요?\n\n중지하면 참가자 페이지에서 더 이상 신청할 수 없고, 이후 실험을 삭제할 수 있습니다.`))return
+    setStoppingId(study.id)
+    const{error}=await supabase.from('studies').update({status:'closed'}).eq('id',study.id)
+    if(error)alert(error.message)
+    else await loadStudies()
+    setStoppingId(null)
+  }
   async function deleteStudy(study:Study){
+    if(study.status==='published'){alert('모집 중인 실험은 먼저 모집을 중지한 뒤 삭제해주세요.');return}
     if(deletingId)return
     const typed=window.prompt(`“${study.title}” 실험을 영구 삭제합니다.\n\n신청자, 일정, 문의와 메일 기록도 함께 삭제되며 되돌릴 수 없습니다.\n삭제하려면 실험 이름을 그대로 입력해주세요.`)
     if(typed===null)return
@@ -70,11 +93,49 @@ export default function ResearchHome({user,studies,setStudy,setTab,loadStudies}:
     setDeletingId(null)
   }
 
-  return<div className="shell"><header className="topbar"><b className="brand">StudyForm</b><nav className="nav"><span className="muted small">{user.email}</span><button className="btn ghost small" onClick={()=>supabase.auth.signOut()}>로그아웃</button></nav></header><main className="container rh-root">
-    <div className="rh-head"><div><h1>실험 관리</h1><p className="muted">오늘 처리할 일정과 문의를 먼저 확인하세요.</p></div><div className="row"><button className="btn secondary" disabled={loading} onClick={createSample}>샘플 실험 보기</button><button className="btn" disabled={loading} onClick={createStudy}>+ 새 실험</button></div></div>
-    <section className="rh-metrics" aria-label="전체 운영 현황"><div><strong>{total.today}</strong><span>오늘 일정</span></div><div><strong>{total.unscheduled}</strong><span>일정 미정</span></div><div><strong>{total.pending}</strong><span>답변 필요</span></div><div className={total.failed?'attention':''}><strong>{total.failed}</strong><span>메일 실패</span></div></section>
-    <section className="rh-grid"><div className="rh-studies"><div className="rh-section-head"><div><h2>실험</h2><span>{studies.length}개</span></div></div><div className="rh-study-list">{studies.map(study=>{const m=perStudy.get(study.id)||{responses:0,unscheduled:0,today:0,pending:0,failed:0};return<article className="card rh-study" key={study.id}><div className="rh-study-main"><div><span className={`pill ${study.status==='published'?'live':''}`}>{study.status==='published'?'모집 중':study.status==='closed'?'종료':'준비 중'}</span><h3>{study.title}</h3><span className="muted small">신청자 {m.responses}명</span></div><div className="rh-study-buttons"><button className="btn secondary small" onClick={()=>open(study)}>관리</button><button className="btn ghost small rh-delete" disabled={deletingId===study.id} onClick={()=>deleteStudy(study)}>{deletingId===study.id?'삭제 중…':'삭제'}</button></div></div><div className="rh-study-actions"><button onClick={()=>open(study,'schedule')}><strong>{m.unscheduled}</strong><span>일정 미정</span></button><button onClick={()=>open(study,'schedule')}><strong>{m.today}</strong><span>오늘 일정</span></button><button onClick={()=>open(study,'contact')} className={m.pending?'attention':''}><strong>{m.pending}</strong><span>답변 필요</span></button><button onClick={()=>open(study,'schedule')} className={m.failed?'attention':''}><strong>{m.failed}</strong><span>메일 실패</span></button></div>{study.status==='published'&&<a className="rh-public-link" href={`/s/${study.slug}`} target="_blank" rel="noreferrer">참가자 페이지 열기 ↗</a>}</article>})}{!studies.length&&<div className="empty">아직 실험이 없습니다.</div>}</div></div>
-      <aside className="card rh-agenda"><div className="rh-section-head"><div><h2>전체 일정</h2><span>다가오는 일정</span></div></div><div className="rh-agenda-list">{upcoming.map(a=>{const s=studyMap.get(a.study_id);const response=responses.find(r=>r.id===a.response_id);return<button key={a.id} onClick={()=>s&&open(s,'schedule')}><time>{fmt(a.starts_at)}</time><strong>{s?.title||'실험'} · {a.session_label}</strong><span>{response?participantName(response):'참가자'}</span></button>})}{!upcoming.length&&<div className="empty compact">예정된 일정이 없습니다.</div>}</div></aside>
-    </section>
-  </main></div>
+  return <div className="shell">
+    <header className="topbar"><b className="brand">StudyForm</b><nav className="nav"><span className="muted small">{user.email}</span><AdminButton variant="ghost" size="sm" onClick={()=>supabase.auth.signOut()}>로그아웃</AdminButton></nav></header>
+    <main className="container rh-root">
+      <AdminPageHeader title="실험 관리" description="오늘 처리할 일정과 문의를 먼저 확인하세요." actions={<AdminActions><AdminButton variant="secondary" disabled={loading} onClick={createSample}>샘플 실험 보기</AdminButton><AdminButton disabled={loading} onClick={createStudy}>+ 새 실험</AdminButton></AdminActions>}/>
+
+      <AdminMetricStrip label="전체 운영 현황">
+        <AdminMetric value={total.today} label="오늘 일정"/>
+        <AdminMetric value={total.unscheduled} label="일정 미정"/>
+        <AdminMetric value={total.pending} label="답변 필요"/>
+        <AdminMetric value={total.failed} label="메일 실패" tone={total.failed?'danger':'default'}/>
+      </AdminMetricStrip>
+
+      <section className="rh-grid">
+        <div className="rh-studies">
+          <AdminSectionHeader title="실험" meta={`${studies.length}개`}/>
+          <div className="rh-study-list">{studies.map(study=>{
+            const m=perStudy.get(study.id)||{responses:0,unscheduled:0,today:0,pending:0,failed:0}
+            const status=study.status==='published'?'confirmed':study.status==='closed'?'neutral':'draft'
+            const statusLabel=study.status==='published'?'모집 중':study.status==='closed'?'종료':'준비 중'
+            return <AdminSurface className="rh-study" key={study.id}>
+              <div className="rh-study-main">
+                <div><StatusBadge status={status} label={statusLabel}/><h3>{study.title}</h3><span className="muted small">신청자 {m.responses}명</span></div>
+                <AdminActions className="rh-study-buttons">
+                  <AdminButton variant="secondary" size="sm" onClick={()=>open(study)}>관리</AdminButton>
+                  {study.status==='published'?<AdminButton variant="danger" size="sm" disabled={stoppingId===study.id} onClick={()=>stopStudy(study)}>{stoppingId===study.id?'중지 중…':'모집 중지'}</AdminButton>:<AdminButton variant="danger" size="sm" disabled={deletingId===study.id} onClick={()=>deleteStudy(study)}>{deletingId===study.id?'삭제 중…':'삭제'}</AdminButton>}
+                </AdminActions>
+              </div>
+              <div className="rh-study-actions">
+                <AdminButton variant="text" size="sm" onClick={()=>open(study,'schedule')}><strong>{m.unscheduled}</strong><span>일정 미정</span></AdminButton>
+                <AdminButton variant="text" size="sm" onClick={()=>open(study,'schedule')}><strong>{m.today}</strong><span>오늘 일정</span></AdminButton>
+                <AdminButton variant="text" size="sm" className={m.pending?'attention':''} onClick={()=>open(study,'contact')}><strong>{m.pending}</strong><span>답변 필요</span></AdminButton>
+                <AdminButton variant="text" size="sm" className={m.failed?'attention':''} onClick={()=>open(study,'schedule')}><strong>{m.failed}</strong><span>메일 실패</span></AdminButton>
+              </div>
+              {study.status==='published'&&<AdminLinkButton className="rh-public-action" variant="text" size="sm" href={`/s/${study.slug}`} target="_blank" rel="noreferrer">참가자 페이지 열기 ↗</AdminLinkButton>}
+            </AdminSurface>
+          })}{!studies.length&&<div className="empty">아직 실험이 없습니다.</div>}</div>
+        </div>
+
+        <AdminSurface className="rh-agenda">
+          <AdminSectionHeader title="전체 일정"/>
+          <div>{upcoming.map(a=>{const s=studyMap.get(a.study_id);const response=responses.find(r=>r.id===a.response_id);return <AdminActionRow key={a.id} meta={fmt(a.starts_at)} title={`${s?.title||'실험'} · ${a.session_label}`} detail={response?participantName(response):'참가자'} onClick={()=>{if(s)open(s,'schedule')}}/>})}{!upcoming.length&&<div className="empty compact">예정된 일정이 없습니다.</div>}</div>
+        </AdminSurface>
+      </section>
+    </main>
+  </div>
 }

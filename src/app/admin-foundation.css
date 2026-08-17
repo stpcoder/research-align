@@ -5,6 +5,7 @@
   --ui-muted:#6f6f6a;
   --ui-line:#e3e3dd;
   --ui-line-strong:#d2d2ca;
+  --ui-line-width:1px;
   --ui-soft:#f2f2ee;
   --ui-hover:#f8f8f5;
   --ui-selected:#efefeb;
@@ -17,6 +18,7 @@
   --ui-draft-text:#805500;
   --ui-info-bg:#edf2f8;
   --ui-info-text:#435b76;
+  --ui-font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --ui-font-page:26px;
   --ui-font-section:17px;
   --ui-font-panel:16px;
@@ -29,9 +31,8 @@
   --ui-control-height:38px;
   --ui-surface-padding:18px;
   --ui-gap:16px;
-  --ui-divider:1px solid var(--ui-line);
+  --ui-divider:var(--ui-line-width) solid var(--ui-line);
 
-  /* Compatibility aliases. Older page CSS must resolve to the same tokens. */
   --bg:var(--ui-bg);
   --paper:var(--ui-surface);
   --text:var(--ui-text);
@@ -60,25 +61,31 @@
   --aui-radius:var(--ui-radius-surface);
 }
 
-html,body{font-size:var(--ui-font-body);color:var(--ui-text);background:var(--ui-bg)}
+html,body{font-size:var(--ui-font-body);font-family:var(--ui-font-family);color:var(--ui-text);background:var(--ui-bg)}
+button,input,select,textarea{font-family:var(--ui-font-family)}
 .small,.muted.small{font-size:var(--ui-font-meta)}
 
-/* Major surfaces only. Nested content should use spacing/dividers rather than more boxes. */
-.card,.aui-surface{background:var(--ui-surface);border:1px solid var(--ui-line);border-radius:var(--ui-radius-surface);box-shadow:none}
+.card,.aui-surface{background:var(--ui-surface);border:var(--ui-line-width) solid var(--ui-line);border-radius:var(--ui-radius-surface);box-shadow:none}
 .aui-surface{padding:var(--ui-surface-padding)}
-.aui-divider{height:1px;background:var(--ui-line);border:0;margin:0}
+.aui-divider{height:var(--ui-line-width);background:var(--ui-line);border:0;margin:0}
 
-/* One shared button language. .btn stays as a compatibility alias while pages migrate to AdminButton. */
-.btn,.aui-button{min-height:36px;border:1px solid transparent;border-radius:var(--ui-radius-control);padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:13px;line-height:1;font-weight:650;white-space:nowrap;text-decoration:none;box-shadow:none;background:var(--ui-primary);color:#fff}
+.btn,.aui-button{min-height:36px;border:var(--ui-line-width) solid transparent;border-radius:var(--ui-radius-control);padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:13px;line-height:1;font-weight:650;white-space:nowrap;text-decoration:none;box-shadow:none;background:var(--ui-primary);color:#fff}
 .btn:hover:not(:disabled),.aui-button:hover:not(:disabled){filter:brightness(.96)}
 .btn:disabled,.aui-button:disabled{cursor:not-allowed;opacity:.48}
-.btn.small,.aui-button.small{min-height:32px;padding:0 10px;font-size:12px}
+.btn.small,.aui-button.small{min-height:32px;padding:0 10px;font-size:var(--ui-font-meta)}
 .btn.secondary,.aui-button.secondary{background:var(--ui-soft);color:var(--ui-text);border-color:transparent}
 .btn.ghost,.aui-button.ghost{background:transparent;color:var(--ui-text);border-color:var(--ui-line)}
 .btn.danger,.aui-button.danger{background:var(--ui-danger-bg);color:var(--ui-danger-text);border-color:transparent}
+.aui-button.text{min-height:28px;padding:0;background:transparent;color:var(--ui-muted);border-color:transparent;font-size:var(--ui-font-meta)}
+.aui-button.text:hover:not(:disabled){filter:none;color:var(--ui-text);text-decoration:underline;text-underline-offset:3px}
 
-/* One shared control geometry. Page-specific CSS may change layout, not border/font/height. */
-input:not([type='checkbox']):not([type='radio']),select,textarea,.aui-control{width:100%;border:1px solid var(--ui-line-strong);background:#fff;border-radius:var(--ui-radius-control);padding:9px 10px;color:var(--ui-text);font-size:var(--ui-font-body);line-height:1.35;outline:none;box-shadow:none}
+.aui-icon-button{width:32px;height:32px;min-width:32px;border:var(--ui-line-width) solid transparent;border-radius:var(--ui-radius-control);background:transparent;color:var(--ui-muted);display:inline-flex;align-items:center;justify-content:center;padding:0;font-size:16px;line-height:1;box-shadow:none}
+.aui-icon-button:hover:not(:disabled){background:var(--ui-soft);color:var(--ui-text)}
+.aui-icon-button:disabled{opacity:.42;cursor:not-allowed}
+.aui-icon-button.danger{color:var(--ui-danger-text)}
+.aui-icon-button.danger:hover:not(:disabled){background:var(--ui-danger-bg)}
+
+input:not([type='checkbox']):not([type='radio']),select,textarea,.aui-control{width:100%;border:var(--ui-line-width) solid var(--ui-line-strong);background:#fff;border-radius:var(--ui-radius-control);padding:9px 10px;color:var(--ui-text);font-size:var(--ui-font-body);line-height:1.35;outline:none;box-shadow:none}
 input:not([type='checkbox']):not([type='radio']),select,.aui-control:not(textarea){min-height:var(--ui-control-height)}
 textarea{min-height:88px;resize:vertical}
 input:focus,select:focus,textarea:focus,.aui-control:focus{border-color:#8b8b83;box-shadow:0 0 0 2px rgba(0,0,0,.035)}
@@ -90,7 +97,6 @@ input::placeholder,textarea::placeholder{color:#a0a09a}
 .aui-field-hint{color:var(--ui-muted)}
 .aui-field-error{color:var(--ui-danger-text)}
 
-/* Consistent type hierarchy. Avoid page-specific 10px/11px helper text unless it is a true kicker. */
 .aui-page-copy h2{font-size:var(--ui-font-page);font-weight:750;line-height:1.2}
 .aui-page-copy p{font-size:var(--ui-font-body);line-height:1.5}
 .aui-kicker{font-size:var(--ui-font-kicker);font-weight:800;letter-spacing:.06em}
@@ -99,7 +105,18 @@ input::placeholder,textarea::placeholder{color:#a0a09a}
 .aui-list-copy strong{font-size:var(--ui-font-body);font-weight:650}
 .aui-status{font-size:var(--ui-font-meta);font-weight:650}
 
-/* Shared layout/rows/tables. */
+.aui-section-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:10px;min-width:0}
+.aui-section-title{display:flex;align-items:baseline;gap:8px;min-width:0}
+.aui-section-title h3{font-size:var(--ui-font-section);font-weight:700;line-height:1.3;margin:0}
+.aui-section-title span{font-size:var(--ui-font-meta);color:var(--ui-muted);white-space:nowrap}
+
+.aui-metric-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:var(--ui-line-width) solid var(--ui-line);border-radius:var(--ui-radius-surface);background:var(--ui-surface);overflow:hidden}
+.aui-metric{display:flex;flex-direction:column;gap:2px;padding:14px 16px;border-right:var(--ui-divider);min-width:0}
+.aui-metric:last-child{border-right:0}
+.aui-metric strong{font-size:24px;line-height:1.15;letter-spacing:-.03em;font-weight:720}
+.aui-metric span{font-size:var(--ui-font-meta);color:var(--ui-muted)}
+.aui-metric.danger strong{color:var(--ui-danger-text)}
+
 .aui-actions,.aui-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}
 .aui-toolbar{justify-content:space-between}
 .aui-data-list{display:flex;flex-direction:column;min-width:0}
@@ -108,6 +125,22 @@ input::placeholder,textarea::placeholder{color:#a0a09a}
 .aui-data-row-main{min-width:0}
 .aui-data-row-main>strong{display:block;font-size:var(--ui-font-body);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .aui-data-row-main>span{display:block;margin-top:2px;font-size:var(--ui-font-meta);color:var(--ui-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.aui-action-row{width:100%;border:0;border-top:var(--ui-divider);background:transparent;padding:10px 2px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;color:var(--ui-text);border-radius:0;min-width:0}
+.aui-action-row:first-child{border-top:0}
+.aui-action-row:hover{background:var(--ui-hover)}
+.aui-action-row-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.aui-action-row-copy small,.aui-action-row-copy span{font-size:var(--ui-font-meta);color:var(--ui-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aui-action-row-copy strong{font-size:var(--ui-font-body);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aui-action-row-trailing{flex:0 0 auto}
+
+.aui-menu-item{width:100%;border:0;border-radius:var(--ui-radius-control);background:transparent;padding:8px 6px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center;text-align:left;color:var(--ui-text)}
+.aui-menu-item:hover{background:var(--ui-hover)}
+.aui-menu-leading{color:var(--ui-muted);font-size:16px}
+.aui-menu-copy{min-width:0}
+.aui-menu-copy strong{display:block;font-size:var(--ui-font-body);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aui-menu-copy span{display:block;margin-top:2px;font-size:var(--ui-font-meta);color:var(--ui-muted)}
+
 .aui-table{overflow:auto;border-top:var(--ui-divider);border-bottom:var(--ui-divider)}
 .aui-table-grid{display:grid;grid-template-columns:var(--aui-table-columns,minmax(0,1fr));min-width:var(--aui-table-min-width,0)}
 .aui-table-head,.aui-table-row{display:contents}
@@ -115,27 +148,25 @@ input::placeholder,textarea::placeholder{color:#a0a09a}
 .aui-table-head .aui-table-cell{font-size:var(--ui-font-meta);font-weight:650;color:var(--ui-muted);background:#fafaf8}
 .aui-table-row:last-child .aui-table-cell{border-bottom:0}
 
-/* Shared selected-state behavior: full subtle surface, never a lone left rail. */
-.aui-list-item.active,.person.active,.response-item.active,.bulk-person.active,.ss-session.active,.schedule-person.active{background:var(--ui-selected);box-shadow:inset 0 0 0 1px var(--ui-line-strong);border-color:var(--ui-line-strong);padding-left:inherit}
-.schedule-next-action,.schedule-next-action.unassigned,.schedule-next-action.draft,.schedule-next-action.confirmed{border-left-width:1px!important}
+.aui-list-item.active,.person.active,.response-item.active,.bulk-person.active,.ss-session.active,.schedule-person.active{background:var(--ui-selected);box-shadow:inset 0 0 0 var(--ui-line-width) var(--ui-line-strong);border-color:var(--ui-line-strong);padding-left:inherit}
+.schedule-next-action,.schedule-next-action.unassigned,.schedule-next-action.draft,.schedule-next-action.confirmed{border-left-width:var(--ui-line-width)!important}
 
-/* Normalize common page-level microcopy that had drifted below the design scale. */
 .rh-study-actions span,.rh-public-link,.rh-agenda-list time,.rh-agenda-list span,.contact-person-meta,.contact-auto-label,.ss-session-copy small,.ss-cell small,.af-date-count,.af-save-state,.field-hint,.blackout-cell,.blackout-legend{font-size:var(--ui-font-meta)}
 .af-availability .aui-field>span{font-size:var(--ui-font-label)}
 
-/* Existing FORM/SCHEDULE kickers are decorative duplicates of the page title. */
 .af-root .aui-kicker,.ss-root .aui-kicker{display:none}
 .af-question-index .aui-panel-head p,.af-basics .aui-panel-head p{display:none}
 .af-add-option small{display:none}
 
-/* Home metrics are one shared surface with dividers, not four independent cards. */
-.rh-metrics{gap:0;border:1px solid var(--ui-line);border-radius:var(--ui-radius-surface);background:var(--ui-surface);overflow:hidden}
-.rh-metrics>div{border:0!important;border-right:var(--ui-divider)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
-.rh-metrics>div:last-child{border-right:0!important}
+.rh-study-actions{display:flex!important;align-items:center;gap:12px!important;flex-wrap:wrap;margin-top:12px!important}
+.rh-study-actions .aui-button.text{gap:4px}
+.rh-study-actions .aui-button.text strong{font-size:var(--ui-font-body);font-weight:700;color:var(--ui-text)}
+.rh-study-actions .aui-button.text span{font-size:var(--ui-font-meta);color:var(--ui-muted)}
+.rh-study-actions .aui-button.text.attention strong,.rh-study-actions .aui-button.text.attention span{color:var(--ui-danger-text)}
+.rh-public-action{margin-top:8px;align-self:flex-start}
 
-/* Specialized tables/grids still use the same line/type system. */
-.ss-grid-scroll,.blackout-scroll,.timetable-scroll{border:1px solid var(--ui-line);border-radius:10px}
+.ss-grid-scroll,.blackout-scroll,.timetable-scroll{border:var(--ui-line-width) solid var(--ui-line);border-radius:10px}
 .ss-corner,.ss-date,.ss-time,.ss-cell,.blackout-corner,.blackout-date,.blackout-time,.blackout-cell,.timetable-corner,.timetable-date,.timetable-time,.timetable-cell,.schedule-grid-corner,.schedule-grid-date,.schedule-grid-time,.schedule-grid-cell{border-right-color:var(--ui-line);border-bottom-color:var(--ui-line)}
 .ss-corner,.ss-date,.ss-time,.blackout-corner,.blackout-date,.blackout-time,.timetable-corner,.timetable-date,.timetable-time,.schedule-grid-corner,.schedule-grid-date,.schedule-grid-time{font-size:var(--ui-font-meta)}
 
-@media(max-width:900px){.aui-toolbar{align-items:flex-start;flex-direction:column}.aui-actions{max-width:100%;overflow-x:auto}.aui-table{max-width:100%}.rh-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.rh-metrics>div:nth-child(2){border-right:0!important}.rh-metrics>div:nth-child(-n+2){border-bottom:var(--ui-divider)!important}}
+@media(max-width:900px){.aui-toolbar{align-items:flex-start;flex-direction:column}.aui-actions{max-width:100%;overflow-x:auto}.aui-table{max-width:100%}.aui-metric-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.aui-metric:nth-child(2){border-right:0}.aui-metric:nth-child(-n+2){border-bottom:var(--ui-divider)}.rh-study-actions{gap:8px!important}}

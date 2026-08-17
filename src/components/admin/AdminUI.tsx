@@ -1,6 +1,7 @@
 'use client'
 
 import type {
+  AnchorHTMLAttributes,
   ButtonHTMLAttributes,
   CSSProperties,
   DragEvent,
@@ -12,8 +13,12 @@ import type {
 
 function cx(...values:(string|false|null|undefined)[]){return values.filter(Boolean).join(' ')}
 
-export type AdminButtonVariant='primary'|'secondary'|'ghost'|'danger'
+export type AdminButtonVariant='primary'|'secondary'|'ghost'|'danger'|'text'
 export type AdminButtonSize='sm'|'md'
+
+function buttonClass(variant:AdminButtonVariant,size:AdminButtonSize,className:string){
+  return cx('aui-button',variant,size==='sm'&&'small',className)
+}
 
 export function AdminButton({
   variant='primary',
@@ -22,7 +27,25 @@ export function AdminButton({
   type='button',
   ...props
 }:ButtonHTMLAttributes<HTMLButtonElement>&{variant?:AdminButtonVariant;size?:AdminButtonSize}){
-  return <button type={type} className={cx('aui-button',variant,size==='sm'&&'small',className)} {...props}/>
+  return <button type={type} className={buttonClass(variant,size,className)} {...props}/>
+}
+
+export function AdminLinkButton({
+  variant='ghost',
+  size='md',
+  className='',
+  ...props
+}:AnchorHTMLAttributes<HTMLAnchorElement>&{variant?:AdminButtonVariant;size?:AdminButtonSize}){
+  return <a className={buttonClass(variant,size,className)} {...props}/>
+}
+
+export function AdminIconButton({
+  tone='neutral',
+  className='',
+  type='button',
+  ...props
+}:ButtonHTMLAttributes<HTMLButtonElement>&{tone?:'neutral'|'danger'}){
+  return <button type={type} className={cx('aui-icon-button',tone==='danger'&&'danger',className)} {...props}/>
 }
 
 export function AdminInput({className='',...props}:InputHTMLAttributes<HTMLInputElement>){
@@ -90,13 +113,24 @@ export function AdminPageHeader({
   </header>
 }
 
-export function AdminSurface({
-  children,
-  className = '',
-}: {
-  children: ReactNode
-  className?: string
-}) {
+export function AdminSectionHeader({
+  title,
+  meta,
+  actions,
+  className='',
+}:{
+  title:string
+  meta?:ReactNode
+  actions?:ReactNode
+  className?:string
+}){
+  return <div className={cx('aui-section-head',className)}>
+    <div className="aui-section-title"><h3>{title}</h3>{meta&&<span>{meta}</span>}</div>
+    {actions&&<AdminActions>{actions}</AdminActions>}
+  </div>
+}
+
+export function AdminSurface({children,className=''}:{children:ReactNode;className?:string}){
   return <section className={cx('aui-surface',className)}>{children}</section>
 }
 
@@ -150,6 +184,14 @@ export function StatusBadge({ status, label }: { status: AdminStatus; label?: st
   return <span className={`aui-status ${status}`}>{label || defaultLabel[status]}</span>
 }
 
+export function AdminMetricStrip({children,className='',label}:{children:ReactNode;className?:string;label?:string}){
+  return <section className={cx('aui-metric-strip',className)} aria-label={label}>{children}</section>
+}
+
+export function AdminMetric({value,label,tone='default'}:{value:ReactNode;label:ReactNode;tone?:'default'|'danger'}){
+  return <div className={cx('aui-metric',tone==='danger'&&'danger')}><strong>{value}</strong><span>{label}</span></div>
+}
+
 export function AdminListItem({
   active,
   title,
@@ -196,6 +238,50 @@ export function AdminListItem({
       {meta && <small>{meta}</small>}
     </span>
     {status && <span className="aui-list-status">{status}</span>}
+  </button>
+}
+
+export function AdminMenuItem({
+  title,
+  meta,
+  leading,
+  onClick,
+  className='',
+}:{
+  title:ReactNode
+  meta?:ReactNode
+  leading?:ReactNode
+  onClick?:()=>void
+  className?:string
+}){
+  return <button type="button" className={cx('aui-menu-item',className)} onClick={onClick}>
+    {leading&&<span className="aui-menu-leading">{leading}</span>}
+    <span className="aui-menu-copy"><strong>{title}</strong>{meta&&<span>{meta}</span>}</span>
+  </button>
+}
+
+export function AdminActionRow({
+  title,
+  detail,
+  meta,
+  trailing,
+  onClick,
+  className='',
+}:{
+  title:ReactNode
+  detail?:ReactNode
+  meta?:ReactNode
+  trailing?:ReactNode
+  onClick?:()=>void
+  className?:string
+}){
+  return <button type="button" className={cx('aui-action-row',className)} onClick={onClick}>
+    <span className="aui-action-row-copy">
+      {meta&&<small>{meta}</small>}
+      <strong>{title}</strong>
+      {detail&&<span>{detail}</span>}
+    </span>
+    {trailing&&<span className="aui-action-row-trailing">{trailing}</span>}
   </button>
 }
 

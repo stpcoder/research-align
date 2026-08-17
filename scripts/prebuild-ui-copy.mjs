@@ -51,32 +51,6 @@ if(swStart>=0&&swEnd>=0){
 }
 fs.writeFileSync(file,text)
 
-// Expose the current Form Builder save operation to the workspace publish action.
-const formFile='src/components/FormBuilderUnified.tsx'
-let form=fs.readFileSync(formFile,'utf8')
-if(!form.includes('__studyFormSave=save'))form=form.replace(
-  '  function patch(value:Partial<FormField>){',
-  "  useEffect(()=>{(window as any).__studyFormSave=save;return()=>{if((window as any).__studyFormSave===save)delete (window as any).__studyFormSave}})\n\n  function patch(value:Partial<FormField>){"
-)
-fs.writeFileSync(formFile,form)
-
-// Enforce a clear stop-before-delete lifecycle on the researcher home screen.
-const homeFile='src/components/ResearchHome.tsx'
-let home=fs.readFileSync(homeFile,'utf8')
-home=home.replace(
-  "  const[deletingId,setDeletingId]=useState<string|null>(null)",
-  "  const[deletingId,setDeletingId]=useState<string|null>(null)\n  const[stoppingId,setStoppingId]=useState<string|null>(null)"
-)
-if(!home.includes('async function stopStudy(study:Study)'))home=home.replace(
-  '  async function deleteStudy(study:Study){\n    if(deletingId)return',
-  "  async function stopStudy(study:Study){\n    if(stoppingId)return\n    if(!window.confirm(`“${study.title}” 참가자 모집을 중지할까요?\\n\\n중지하면 참가자 페이지에서 더 이상 신청할 수 없고, 이후 실험을 삭제할 수 있습니다.`))return\n    setStoppingId(study.id)\n    const{error}=await supabase.from('studies').update({status:'closed'}).eq('id',study.id)\n    if(error)alert(error.message)\n    else await loadStudies()\n    setStoppingId(null)\n  }\n  async function deleteStudy(study:Study){\n    if(study.status==='published'){alert('모집 중인 실험은 먼저 모집을 중지한 뒤 삭제해주세요.');return}\n    if(deletingId)return"
-)
-home=home.replace(
-  '<button className="btn ghost small rh-delete" disabled={deletingId===study.id} onClick={()=>deleteStudy(study)}>{deletingId===study.id?\'삭제 중…\':\'삭제\'}</button>',
-  "{study.status==='published'?<button className=\"btn ghost small rh-delete\" disabled={stoppingId===study.id} onClick={()=>stopStudy(study)}>{stoppingId===study.id?'중지 중…':'모집 중지'}</button>:<button className=\"btn ghost small rh-delete\" disabled={deletingId===study.id} onClick={()=>deleteStudy(study)}>{deletingId===study.id?'삭제 중…':'삭제'}</button>}"
-)
-fs.writeFileSync(homeFile,home)
-
 // Keep the date-window header type-safe before Next.js type checking.
 const scheduleFile='src/components/ScheduleUnified.tsx'
 let schedule=fs.readFileSync(scheduleFile,'utf8')
