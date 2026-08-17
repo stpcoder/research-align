@@ -1,6 +1,73 @@
 'use client'
 
-import type { DragEvent, ReactNode } from 'react'
+import type {
+  ButtonHTMLAttributes,
+  CSSProperties,
+  DragEvent,
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react'
+
+function cx(...values:(string|false|null|undefined)[]){return values.filter(Boolean).join(' ')}
+
+export type AdminButtonVariant='primary'|'secondary'|'ghost'|'danger'
+export type AdminButtonSize='sm'|'md'
+
+export function AdminButton({
+  variant='primary',
+  size='md',
+  className='',
+  type='button',
+  ...props
+}:ButtonHTMLAttributes<HTMLButtonElement>&{variant?:AdminButtonVariant;size?:AdminButtonSize}){
+  return <button type={type} className={cx('aui-button',variant,size==='sm'&&'small',className)} {...props}/>
+}
+
+export function AdminInput({className='',...props}:InputHTMLAttributes<HTMLInputElement>){
+  return <input className={cx('aui-control',className)} {...props}/>
+}
+
+export function AdminSelect({className='',children,...props}:SelectHTMLAttributes<HTMLSelectElement>){
+  return <select className={cx('aui-control',className)} {...props}>{children}</select>
+}
+
+export function AdminTextarea({className='',...props}:TextareaHTMLAttributes<HTMLTextAreaElement>){
+  return <textarea className={cx('aui-control',className)} {...props}/>
+}
+
+export function AdminField({
+  label,
+  hint,
+  error,
+  children,
+  className='',
+}:{
+  label:ReactNode
+  hint?:ReactNode
+  error?:ReactNode
+  children:ReactNode
+  className?:string
+}){
+  return <label className={cx('aui-field',className)}>
+    <span className="aui-field-label">{label}</span>
+    {children}
+    {error?<span className="aui-field-error">{error}</span>:hint?<span className="aui-field-hint">{hint}</span>:null}
+  </label>
+}
+
+export function AdminActions({children,className=''}:{children:ReactNode;className?:string}){
+  return <div className={cx('aui-actions',className)}>{children}</div>
+}
+
+export function AdminToolbar({children,className=''}:{children:ReactNode;className?:string}){
+  return <div className={cx('aui-toolbar',className)}>{children}</div>
+}
+
+export function AdminDivider({className=''}:{className?:string}){
+  return <hr className={cx('aui-divider',className)}/>
+}
 
 export function AdminPageHeader({
   kicker,
@@ -30,7 +97,7 @@ export function AdminSurface({
   children: ReactNode
   className?: string
 }) {
-  return <section className={`aui-surface ${className}`}>{children}</section>
+  return <section className={cx('aui-surface',className)}>{children}</section>
 }
 
 export function AdminSplitView({
@@ -42,7 +109,7 @@ export function AdminSplitView({
   children: ReactNode
   sidebarWidth?: number
 }) {
-  return <div className="aui-split" style={{ '--aui-sidebar': `${sidebarWidth}px` } as React.CSSProperties}>
+  return <div className="aui-split" style={{ '--aui-sidebar': `${sidebarWidth}px` } as CSSProperties}>
     <div className="aui-sidebar">{sidebar}</div>
     <div className="aui-main">{children}</div>
   </div>
@@ -114,7 +181,7 @@ export function AdminListItem({
 }) {
   return <button
     type="button"
-    className={`aui-list-item ${active ? 'active' : ''} ${draggable ? 'draggable' : ''} ${className}`}
+    className={cx('aui-list-item',active&&'active',draggable&&'draggable',className)}
     onClick={onClick}
     draggable={draggable}
     onDragStart={onDragStart}
@@ -130,6 +197,57 @@ export function AdminListItem({
     </span>
     {status && <span className="aui-list-status">{status}</span>}
   </button>
+}
+
+export function AdminDataList({children,className=''}:{children:ReactNode;className?:string}){
+  return <div className={cx('aui-data-list',className)}>{children}</div>
+}
+
+export function AdminDataRow({
+  title,
+  detail,
+  trailing,
+  columns,
+  className='',
+}:{
+  title:ReactNode
+  detail?:ReactNode
+  trailing?:ReactNode
+  columns?:string
+  className?:string
+}){
+  return <div className={cx('aui-data-row',className)} style={columns?{'--aui-row-columns':columns} as CSSProperties:undefined}>
+    <div className="aui-data-row-main"><strong>{title}</strong>{detail&&<span>{detail}</span>}</div>
+    {trailing&&<div>{trailing}</div>}
+  </div>
+}
+
+export function AdminTable({
+  columns,
+  minWidth,
+  head,
+  children,
+  className='',
+}:{
+  columns:string
+  minWidth?:number
+  head?:ReactNode[]
+  children:ReactNode
+  className?:string
+}){
+  const style={'--aui-table-columns':columns,'--aui-table-min-width':minWidth?`${minWidth}px`:'0'} as CSSProperties
+  return <div className={cx('aui-table',className)}><div className="aui-table-grid" style={style} role="table">
+    {head&&<div className="aui-table-head" role="row">{head.map((cell,index)=><div className="aui-table-cell" role="columnheader" key={index}>{cell}</div>)}</div>}
+    {children}
+  </div></div>
+}
+
+export function AdminTableRow({children,className=''}:{children:ReactNode;className?:string}){
+  return <div className={cx('aui-table-row',className)} role="row">{children}</div>
+}
+
+export function AdminTableCell({children,className=''}:{children:ReactNode;className?:string}){
+  return <div className={cx('aui-table-cell',className)} role="cell">{children}</div>
 }
 
 export function SegmentedControl({
