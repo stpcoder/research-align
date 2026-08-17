@@ -77,6 +77,48 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-006 — Add exact-SHA codeload fallback to deployment control
+
+- Time: 2026-08-17 17:55 KST
+- Type: ops
+- Area: deploy / vercel-control
+- Source commit: `37d1be727d73824abd7d3b10b47023a78b8da5b6`
+- Branch: `main`
+- Status: committed
+
+### What changed
+- Added the previously live-only `vercel-control` Edge Function source to GitHub under `supabase/functions/vercel-control/index.ts`.
+- Added deterministic snapshot support through `codeload.github.com` when the deploy manifest includes an exact `commitSha`.
+- Exact-SHA codeload deployments avoid the low unauthenticated GitHub REST API rate limit on shared Supabase egress IPs while preserving deterministic source selection.
+- Existing GitHub REST snapshot behavior remains available when no explicit commit SHA is provided.
+- Deployment state now records `snapshotSource` so future handoffs can distinguish `github-codeload` from `github-api`.
+
+### Files / objects
+- `supabase/functions/vercel-control/index.ts`
+- live Edge Function target: `vercel-control`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no schema change
+
+### Edge / provider
+- Function/provider: `vercel-control`
+- Deployment/auth state: source committed; live deployment pending; must remain `verify_jwt=false` because the function enforces its separate high-entropy `controlKey`
+
+### Application deployment
+- Deployment ID: not applicable to this ops change yet
+- Production commit: unchanged until retry succeeds
+
+### Verification
+- `[PASS]` source-controlled Edge Function commit created after observing pg_net request `119` fail with GitHub REST `API rate limit exceeded`.
+- `[PENDING]` deploy Edge Function and retry application deployment with an exact `manifest.commitSha`.
+
+### Notes / follow-up
+- A long-lived authenticated `github_token` would also avoid REST rate limits, but is not required for exact-SHA codeload snapshot deployments.
+
+---
+
 ## CHANGE-20260817-005 — Auto-save dirty form before publishing or reopening recruitment
 
 - Time: 2026-08-17 17:46 KST
