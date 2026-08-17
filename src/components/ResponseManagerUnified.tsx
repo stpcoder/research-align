@@ -4,7 +4,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { FormField, ResponseRow, Study } from '@/lib/types'
 import { navigateResearcher, participantFromUrl, setParticipantInUrl } from '@/lib/researcherNavigation'
-import { AdminListItem, AdminPageHeader, AdminPanelHeader, AdminSplitView, AdminStatus, AdminSurface, StatusBadge } from '@/components/admin/AdminUI'
+import {
+  AdminActions,
+  AdminButton,
+  AdminDataList,
+  AdminDataRow,
+  AdminInput,
+  AdminListItem,
+  AdminPageHeader,
+  AdminPanelHeader,
+  AdminSplitView,
+  AdminStatus,
+  AdminSurface,
+  StatusBadge,
+} from '@/components/admin/AdminUI'
 
 type Assignment={id:string;response_id:string;session_label:string;starts_at:string;ends_at:string;status:'confirmed'|'completed'|'cancelled'|'no_show'}
 type ContactThread={id:string;response_id:string|null;channel:string;subject:string|null;status:'pending'|'open'|'closed';last_message_at:string|null}
@@ -40,13 +53,13 @@ export default function ResponseManagerUnified({study}:{study:Study}){
   function exportCsv(){const headers=['제출일시','이름','이메일','전화번호',...fields.map(f=>f.label),'일정 기록'];const lines=rows.map(row=>{const schedule=assignments.filter(a=>a.response_id===row.id).map(a=>`${a.session_label} ${dateTime(a.starts_at)} (${assignmentLabel(a.status)})`).join(' | ');return[dateTime(row.submitted_at),responseName(study,row),row.contact_email||'',row.contact_phone||'',...fields.map(f=>answerText(f,row)),schedule].map(csvCell).join(',')});download(`${study.slug}-responses.csv`,'\ufeff'+[headers.map(csvCell).join(','),...lines].join('\n'),'text/csv;charset=utf-8')}
   function exportJson(){download(`${study.slug}-responses.json`,JSON.stringify(rows.map(row=>({response:row,assignments:assignments.filter(a=>a.response_id===row.id),contactThreads:threads.filter(t=>t.response_id===row.id)})),null,2),'application/json;charset=utf-8')}
 
-  const sidebar=<AdminSurface><AdminPanelHeader title="신청자" meta={`${rows.length}명`}/><input className="ar-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="이름 또는 연락처 검색"/><div className="aui-list">{filtered.map(row=><AdminListItem key={row.id} active={selectedId===row.id} title={responseName(study,row)} subtitle={row.contact_email||row.contact_phone||'연락처 없음'} meta={`제출 ${dateTime(row.submitted_at)}`} onClick={()=>selectParticipant(row.id)}/>)}{!filtered.length&&<div className="empty compact">검색 결과가 없습니다.</div>}</div></AdminSurface>
+  const sidebar=<AdminSurface><AdminPanelHeader title="신청자" meta={`${rows.length}명`}/><AdminInput className="ar-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="이름 또는 연락처 검색"/><div className="aui-list">{filtered.map(row=><AdminListItem key={row.id} active={selectedId===row.id} title={responseName(study,row)} subtitle={row.contact_email||row.contact_phone||'연락처 없음'} meta={`제출 ${dateTime(row.submitted_at)}`} onClick={()=>selectParticipant(row.id)}/>)}{!filtered.length&&<div className="empty compact">검색 결과가 없습니다.</div>}</div></AdminSurface>
 
-  return<div><AdminPageHeader kicker="PARTICIPANTS" title="신청자" description="신청 내용, 가능한 시간, 일정 상태와 연락 기록을 참가자별로 확인합니다." actions={<><button className="btn secondary small" onClick={exportCsv}>CSV 내보내기</button><button className="btn ghost small" onClick={exportJson}>JSON 내보내기</button></>}/><AdminSplitView sidebar={sidebar} sidebarWidth={310}><AdminSurface>{!selected?<div className="empty">확인할 신청자를 선택해주세요.</div>:<>
-    <div className="ar-detail-head"><div><h3>{responseName(study,selected)}</h3><div className="ar-meta">{selected.contact_email&&<span>{selected.contact_email}</span>}{selected.contact_phone&&<span>{selected.contact_phone}</span>}<span>제출 {dateTime(selected.submitted_at)}</span></div></div><div className="row"><span className="muted small">ID {selected.id.slice(0,8)}</span><button type="button" className="btn secondary small" onClick={()=>navigateResearcher('schedule',selected.id)}>일정 조율하기</button><button type="button" className="btn ghost small" onClick={()=>navigateResearcher('contact',selected.id)}>연락하기</button></div></div>
+  return<div><AdminPageHeader title="신청자" description="신청 내용과 일정·연락 기록을 확인합니다." actions={<AdminActions><AdminButton variant="secondary" size="sm" onClick={exportCsv}>CSV 내보내기</AdminButton><AdminButton variant="ghost" size="sm" onClick={exportJson}>JSON 내보내기</AdminButton></AdminActions>}/><AdminSplitView sidebar={sidebar} sidebarWidth={310}><AdminSurface>{!selected?<div className="empty">신청자를 선택하세요.</div>:<>
+    <div className="ar-detail-head"><div><h3>{responseName(study,selected)}</h3><div className="ar-meta">{selected.contact_email&&<span>{selected.contact_email}</span>}{selected.contact_phone&&<span>{selected.contact_phone}</span>}<span>제출 {dateTime(selected.submitted_at)}</span></div></div><AdminActions><AdminButton variant="secondary" size="sm" onClick={()=>navigateResearcher('schedule',selected.id)}>일정 조율</AdminButton><AdminButton variant="ghost" size="sm" onClick={()=>navigateResearcher('contact',selected.id)}>연락</AdminButton></AdminActions></div>
     <div className="ar-section"><h4>신청 내용</h4><dl>{fields.filter(f=>f.type!=='availability').map(field=><div key={field.id} className="ar-answer"><dt>{field.label}</dt><dd>{answerText(field,selected)}</dd></div>)}</dl></div>
-    <div className="ar-section"><h4>참여 가능한 시간</h4>{fields.filter(f=>f.type==='availability').map(field=>{const slots=selected.availability?.[field.id]||[];const prefs=selected.preferences?.[field.id]||{};return<div key={field.id} style={{marginBottom:14}}><div className="detail-label">{field.sessionLabel||field.label}</div><div className="ar-slots">{slots.map(slot=>{const rank=Object.entries(prefs).find(([,value])=>value===slot)?.[0];return<span key={slot} className="ar-slot">{slot.replace('T',' ')}{rank?` · ${rank}순위`:''}</span>})}{!slots.length&&<span className="muted small">선택한 시간이 없습니다.</span>}</div></div>})}</div>
-    <div className="ar-section"><h4>일정 기록</h4>{selectedAssignments.map(a=><div className="ar-record" key={a.id}><div><b>{a.session_label}</b><span>{dateTime(a.starts_at)} – {dateTime(a.ends_at)}</span></div><StatusBadge status={assignmentStatus(a.status)} label={assignmentLabel(a.status)}/></div>)}{!selectedAssignments.length&&<span className="muted small">아직 일정 기록이 없습니다.</span>}</div>
-    <div className="ar-section"><h4>연락 기록</h4>{selectedThreads.map(thread=><div className="ar-record" key={thread.id}><div><b>{thread.subject||'연락'}</b><span>{thread.channel.toUpperCase()} · 최근 {dateTime(thread.last_message_at)}</span></div><StatusBadge status={thread.status==='pending'?'danger':thread.status==='open'?'info':'neutral'} label={thread.status==='pending'?'답변 필요':thread.status==='open'?'진행 중':'종료'}/></div>)}{!selectedThreads.length&&<span className="muted small">아직 연락 기록이 없습니다.</span>}</div>
+    <div className="ar-section"><h4>참여 가능한 시간</h4><AdminDataList>{fields.filter(f=>f.type==='availability').map(field=>{const slots=selected.availability?.[field.id]||[];const prefs=selected.preferences?.[field.id]||{};const detail=slots.length?slots.map(slot=>{const rank=Object.entries(prefs).find(([,value])=>value===slot)?.[0];return`${slot.replace('T',' ')}${rank?` · ${rank}순위`:''}`}).join(' · '):'선택한 시간 없음';return<AdminDataRow key={field.id} title={field.sessionLabel||field.label} detail={detail}/>})}</AdminDataList></div>
+    <div className="ar-section"><h4>일정 기록</h4>{selectedAssignments.length?<AdminDataList>{selectedAssignments.map(a=><AdminDataRow key={a.id} title={a.session_label} detail={`${dateTime(a.starts_at)} – ${dateTime(a.ends_at)}`} trailing={<StatusBadge status={assignmentStatus(a.status)} label={assignmentLabel(a.status)}/>}/>)}</AdminDataList>:<span className="muted small">일정 기록 없음</span>}</div>
+    <div className="ar-section"><h4>연락 기록</h4>{selectedThreads.length?<AdminDataList>{selectedThreads.map(thread=><AdminDataRow key={thread.id} title={thread.subject||'연락'} detail={`최근 ${dateTime(thread.last_message_at)}`} trailing={<StatusBadge status={thread.status==='pending'?'danger':thread.status==='open'?'info':'neutral'} label={thread.status==='pending'?'답변 필요':thread.status==='open'?'진행 중':'종료'}/>}/>)}</AdminDataList>:<span className="muted small">연락 기록 없음</span>}</div>
   </>}</AdminSurface></AdminSplitView></div>
 }
