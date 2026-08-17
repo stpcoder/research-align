@@ -77,6 +77,53 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-008 — Preserve participant context across applicant, schedule, and contact tabs
+
+- Time: 2026-08-17 18:39 KST
+- Type: feat
+- Area: participant-workflow / navigation
+- Source commit: `c9f20ca7d63fc1e734e597119113fdfdd93f2ac2`
+- Branch: `main`
+- Status: committed
+
+### What changed
+- Added a shared researcher navigation helper that stores the active participant response ID in `?participant=` and dispatches an internal StudyWorkspace navigation event.
+- Applicant, schedule, and contact views now restore the participant from the URL before falling back to their default selection.
+- Selecting a participant in any of those views updates the shared participant context.
+- Applicant detail now provides `일정 조율하기` and `연락하기` actions.
+- Schedule keeps the same participant and provides a direct `이 참가자에게 연락` action.
+- Contact keeps the same participant and provides `일정에서 보기` and `신청 내용` actions.
+- Unmatched inquiry selection clears participant context so an unrelated applicant is not silently carried forward.
+
+### Files / objects
+- `src/lib/researcherNavigation.ts`
+- `src/components/ResponseManagerUnified.tsx`
+- `src/components/ScheduleUnified.tsx`
+- `src/components/ContactManager.tsx`
+- `scripts/prebuild-ui-copy.mjs`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no schema change
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: none
+
+### Application deployment
+- Deployment ID: not deployed yet
+- Production commit: currently unchanged (`79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`)
+
+### Verification
+- `[PASS]` atomic source commit created on `main` for shared participant context and cross-tab CTAs.
+- `[PENDING]` production Next.js build and authenticated researcher browser workflow will be verified after the remaining P0 UX changes are committed.
+
+### Notes / follow-up
+- Participant context is intentionally URL-backed so normal top-tab switching and page reloads can restore the same participant without adding a new database concept.
+
+---
+
 ## CHANGE-20260817-007 — Normalize codeload archive root before Vercel snapshot
 
 - Time: 2026-08-17 17:51 KST
@@ -263,7 +310,7 @@ If a session terminates between the source commit and the ledger bookkeeping com
 - Added safe handling for clean/stale, dirty/locally-ahead, wrong-repository, and missing checkout states.
 - Prohibited destructive reset/clean/delete of a dirty unknown checkout until potentially valuable local work is preserved or classified.
 - Added a connector-only fallback for sandboxes where shell Git network access is unavailable.
-- Added rules for dependency/cache non-persistence, secret handling, build-time `prebuild-ui-copy.mjs` mutations, interrupted-session recovery, and end-of-session `safe_to_lose_current_mount` reconciliation.
+- Added rules for dependency/cache non-persistence, secret handling, build-time `scripts/prebuild-ui-copy.mjs` mutations, interrupted-session recovery, and end-of-session `safe_to_lose_current_mount` reconciliation.
 - Integrated workspace mode/state into `AGENTS.md`, `SESSION_PROTOCOL.md`, and `HANDOFF_TEMPLATE.md`.
 
 ### Files / objects
