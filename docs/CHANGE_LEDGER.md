@@ -77,6 +77,48 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-005 — Auto-save dirty form before publishing or reopening recruitment
+
+- Time: 2026-08-17 17:46 KST
+- Type: fix
+- Area: form / study-lifecycle
+- Source commit: `1bde332ad88126b2eceb5361243c392be960466e`
+- Branch: `main`
+- Status: committed
+
+### What changed
+- Exposed the mounted unified Form Builder's existing `save()` operation to the StudyWorkspace through a transient browser callback.
+- `모집 시작` and `모집 재개` now detect unsaved form changes, save them first, wait for the dirty state to clear, and only then change the study status to `published`.
+- If form validation or persistence fails and the dirty state remains, publishing is aborted instead of exposing stale saved data.
+- `모집 중지` does not force an unrelated save; autosave applies only when entering the published state.
+
+### Files / objects
+- `scripts/prebuild-ui-copy.mjs`
+- build-time runtime targets: `src/app/page.tsx`, `src/components/FormBuilderUnified.tsx`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no schema change
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: none
+
+### Application deployment
+- Deployment ID: not deployed yet
+- Production commit: unchanged (`dd5eab06280f78f37d5926f4d940ef697c04d4b0`)
+
+### Verification
+- `[PASS]` source commit created on `main` with publish-before-save orchestration.
+- `[PENDING]` Next.js production build will be verified by the production deployment control plane.
+- `[PENDING]` Authenticated admin click-flow E2E requires an authenticated researcher session and will be recorded separately if available.
+
+### Notes / follow-up
+- This uses the existing build-time UI transformation layer to avoid introducing a second form state implementation; removing that layer remains separate technical debt.
+
+---
+
 ## CHANGE-20260817-004 — Require recruitment stop before permanent study deletion
 
 - Time: 2026-08-17 17:42 KST
