@@ -1,23 +1,21 @@
 # Research Align — Current Project State
 
-Last architecture review: 2026-08-16 KST
+Last architecture review: **2026-08-17 KST**
 
-This document describes the durable current state of the product and infrastructure. It is not a session log. For the latest commit/deployment and unfinished work, read `docs/HANDOFF.md`.
+This document describes the durable current product and infrastructure state. It is not a session log. For exact current SHAs, deployments, verification evidence, and unfinished work, read `docs/HANDOFF.md` and `docs/CHANGE_LEDGER.md`.
 
 ## 1. Product purpose
 
-Research Align / StudyForm is a researcher-operated workspace for human-subject study operations. A researcher can own and run multiple studies from one account, including:
+Research Align / StudyForm is a researcher-operated workspace for human-subject study operations. One researcher account can own and run multiple studies, including:
 
 - participant-facing application forms
 - availability collection and preference ranking
-- scheduling across multiple sessions
-- researcher-wide conflict prevention across multiple studies
+- multi-session scheduling
+- researcher-wide schedule conflict prevention across studies
 - participant lifecycle tracking
 - participant and pre-application inquiry management
 - schedule confirmation/change/cancellation email
 - operational dashboard and failure attention states
-
-The core design principle is that research operations live in one system instead of being split across forms, spreadsheets, calendars, and ad-hoc email threads.
 
 ## 2. Production topology
 
@@ -30,42 +28,38 @@ Vercel — Next.js application
         v
 Supabase
   - Auth
-  - Postgres
-  - RLS
-  - RPC / triggers
+  - Postgres / RLS / RPC / triggers
   - Edge Functions
   - private provider/deployment secrets
         |
-        +----> ClawMail API (email transport)
+        +----> ClawMail API
         |
-        +----> Vercel REST API (deployment control plane)
+        +----> Vercel REST API
 ```
 
-Operational identifiers:
+Stable operational identifiers:
 
-- GitHub repository: `stpcoder/research-align`
-- Source branch: `main`
+- GitHub: `stpcoder/research-align`
+- canonical production source branch: `main`
 - Supabase project: `rgwqsqeikebwunbdnbex`
-- Supabase region: `ap-northeast-1`
-- Vercel project name: `research-align`
+- region: `ap-northeast-1`
+- Vercel project: `research-align`
 - Vercel project ID: `prj_m1b582jShPhKBRfxY8GLDxAPFrGQ`
 - Vercel team ID: `team_muySkNMTu5rLXyDOd5pTz1tw`
-- Production URL: `https://research-align.vercel.app`
+- production URL: `https://research-align.vercel.app`
 
-## 3. Application stack
+Changing deployment IDs and SHAs belong in HANDOFF rather than this file.
 
-Current repository dependencies are centered on:
+## 3. Application stack and source layout
+
+Current application stack:
 
 - Next.js 16
 - React 19
 - TypeScript
 - `@supabase/supabase-js`
 
-The browser uses Supabase publishable configuration only. Server/provider secrets must remain outside browser bundles.
-
-## 4. Important source layout
-
-Current feature implementation is primarily in:
+Primary current implementation surfaces:
 
 - `src/components/ResearchHome.tsx`
 - `src/components/FormBuilderUnified.tsx`
@@ -80,55 +74,61 @@ Current feature implementation is primarily in:
 - `supabase/functions/*`
 - `supabase/migrations/*`
 
-### Build-time rewrite warning
+Browser code uses only publishable Supabase configuration. Provider/deployment secrets remain server-side/private.
+
+### Build-time source rewrite warning
 
 `npm run dev` and `npm run build` first execute `scripts/prebuild-ui-copy.mjs`.
 
-That script mutates `src/app/page.tsx` and swaps legacy inline components for the current Unified implementations. It also injects current Korean UI copy and unsaved-change navigation handling.
+The script currently mutates source before Next.js runs. It swaps legacy inline implementations in `src/app/page.tsx` for Unified components and also injects current lifecycle/navigation behavior. Therefore raw `page.tsx` alone is not canonical production behavior.
 
-As a result, `src/app/page.tsx` by itself is not a reliable representation of production behavior. This is known technical debt and should eventually be replaced by canonical source without mutation-at-build.
+This remains important technical debt: current behavior should eventually be moved into canonical source so builds do not mutate tracked files.
 
-## 5. Authentication and tenancy
+## 4. Authentication and tenancy
 
 Researchers authenticate with Supabase email/password auth.
 
-Each `studies` row has an `owner_id`. RLS policies use study ownership to isolate researcher data across:
+Each study has `owner_id`; RLS uses study ownership to isolate researcher data across studies, responses, assignments, contact state, notifications, and contact channels.
 
-- studies
-- responses
-- assignments
-- contact threads/messages
-- notifications
-- study contact channels
+Study statuses are:
 
-A researcher is an administrator of their own tenant; there is no normal shared global admin account.
+- `draft` — not currently public; never started or currently editable before publishing
+- `published` — participant recruitment/application is open
+- `closed` — recruitment explicitly stopped
 
-Study states are:
+Public participants can read/submit only to published studies.
 
-- `draft`
-- `published`
-- `closed`
+## 5. Research Home / dashboard
 
-Public participants may read only published studies and submit responses only to published studies.
-
-## 6. Dashboard / Research Home
-
-The researcher home page is an operations dashboard rather than a simple study list.
-
-It loads data across all studies owned by the current researcher and displays:
+The researcher home loads operational state across all studies owned by the current researcher and shows:
 
 - today's scheduled sessions
 - participants with incomplete scheduling
-- inquiries/messages requiring a researcher reply
+- reply-required inquiries/messages
 - latest schedule-notification failures
-- per-study versions of the same metrics
-- upcoming sessions across all studies
+- per-study operational counts
+- upcoming sessions across studies
 
-The dashboard's email failure count is based on the latest notification state per assignment/kind so a successful retry can clear the attention state.
+### Study lifecycle and deletion
 
-Study deletion is currently a permanent deletion flow protected by typing the exact study title. Cascading foreign keys remove dependent operational records.
+Permanent study deletion exists and is protected by typing the exact study title.
 
-## 7. Form Builder
+Current published-study lifecycle is intentionally:
+
+```text
+published
+  -> 모집 중지
+  -> closed
+  -> 삭제 available
+```
+
+A published study cannot be permanently deleted directly. The researcher must stop recruitment first. The home card shows `모집 중지` while published and `삭제` after it is closed. A defensive delete guard also refuses a published study even if the UI is bypassed.
+
+Closed studies can be reopened from the workspace with `모집 재개`.
+
+Deleting a study is a real database delete; cascading FKs remove dependent operational rows. This is not a soft-delete archive.
+
+## 6. Form Builder
 
 Supported field types:
 
@@ -143,73 +143,56 @@ Supported field types:
 
 Availability fields support:
 
-- stable session key
-- session label
+- stable session key / label
 - duration
 - start interval (`stepMinutes`)
-- minimum/maximum number of selectable slots
+- min/max number of selectable slots
 - Top-N preference ranking
-- selected dates
-- operating hours
-- per-slot blackout configuration
+- dates and operating hours
+- per-slot blackout
 - location
-- participant instructions/preparation notes
+- participant instructions
 - post-session buffer time
 
-Date management supports:
+Date editing supports individual dates, 7-day addition, arbitrary ranges, single-date removal, and clear-all.
 
-- individual date addition
-- 7-day addition
-- arbitrary start/end range addition
-- remove one date
-- clear dates
+The Form Builder tracks dirty state and guards navigation/unload while changes are unsaved.
 
-Unsaved-change state is displayed and browser/tab navigation is guarded by the current build-time patching layer.
+### Publish autosave behavior
 
-## 8. Participant application flow
+`모집 시작` and `모집 재개` are save-before-publish operations.
 
-Public route:
+If the mounted Form Builder is dirty:
 
-`/s/[slug]`
+1. the workspace invokes the Form Builder's existing save operation
+2. title/slug/description/form configuration are persisted
+3. the workspace waits for dirty state to clear
+4. only then is study status changed to `published`
 
-The page contains both:
+If save validation/persistence fails and dirty state remains, publishing is aborted. This prevents a researcher from clicking publish, returning home, and exposing the older saved form while assuming the latest edits were published.
+
+Stopping recruitment does not force an unrelated form save.
+
+## 7. Participant application flow
+
+Public route: `/s/[slug]`.
+
+The public page contains:
 
 - `ParticipantForm`
 - `PublicInquiryWidget`
 
-Availability submission is a request, not an immediate reservation.
+Availability submission is a request rather than an immediate reservation. Participants fill the configured form, select/rank slots, submit, then wait for researcher scheduling.
 
-The participant:
+Busy intervals come from `get_public_busy_intervals(study_id)`. The form re-fetches busy intervals immediately before submission to reject slots that became unavailable while the page was open.
 
-1. fills configured form fields
-2. selects available slots
-3. optionally ranks preferred slots
-4. submits a response
-5. waits for the researcher to assign/confirm the actual session
+## 8. Researcher-wide scheduling model
 
-Busy intervals are fetched from `get_public_busy_intervals(study_id)`.
+Scheduling is resource-constrained across all studies owned by the same researcher.
 
-The form re-fetches busy intervals immediately before submission and rejects selections that became unavailable while the page was open.
+The UI loads researcher-visible assignments across studies. PostgreSQL independently enforces the invariant through `prevent_owner_schedule_overlap()`.
 
-## 9. Researcher-wide scheduling model
-
-Scheduling is intentionally resource-constrained across all studies owned by one researcher.
-
-A researcher cannot confirm overlapping sessions in two different studies.
-
-The UI loads all assignments visible to the researcher and distinguishes:
-
-- current assignment
-- current study assignments
-- another study's assignments
-- another participant's selected availability
-- buffer occupation
-
-The database independently enforces the same owner-wide invariant using `prevent_owner_schedule_overlap()`.
-
-### Time occupation
-
-Current blocking assignment states:
+Blocking assignment states:
 
 - `confirmed`
 - `completed`
@@ -217,86 +200,49 @@ Current blocking assignment states:
 
 `cancelled` does not block time.
 
-Both session duration and configured `bufferMinutes` participate in conflict detection.
+Both duration and `bufferMinutes` participate in overlap calculations. The public busy RPC also includes buffer occupation.
 
-The public busy-interval RPC also extends the busy interval through the configured buffer.
-
-### Assignment state model
-
-Allowed assignment statuses:
+Assignment statuses:
 
 - `confirmed`
 - `completed`
 - `no_show`
 - `cancelled`
 
-A compatibility normalization function converts legacy `draft` writes to `confirmed`.
+Cancellation preserves the row. `(response_id, session_key)` is unique. Legacy `draft` assignment writes are normalized to `confirmed`.
 
-`(response_id, session_key)` is unique.
+The UI additionally supports configured session order, max sessions/day, participant-selected scheduling, admin-agreed direct scheduling, search/filtering, lifecycle states, and 4-date schedule-window navigation.
 
-Cancellation preserves the assignment row for audit/history.
+## 9. Responses and participant detail
 
-### Additional schedule rules
+Participant management shows submitted answers, availability, preference ranks, schedule history/status, and contact state.
 
-The current UI also supports:
-
-- configured session order
-- maximum sessions per participant per day
-- participant-selected scheduling
-- explicit researcher/admin-agreed scheduling for a time not originally selected by the participant
-- participant search
-- participant lifecycle filter
-- 4-date scheduling window navigation
-
-Participant lifecycle presentation distinguishes roughly:
-
-- unscheduled
-- partially scheduled
-- fully scheduled
-- all sessions handled
-
-## 10. Responses / participant detail
-
-The participant-management screen shows:
-
-- submitted answers
-- selected availability
-- preference ranks
-- schedule history
-- schedule status badges
-- contact thread history/status
-
-Current schedule display labels:
+Current schedule labels:
 
 - `confirmed` → 확정
 - `completed` → 완료
 - `no_show` → 불참
 - `cancelled` → 취소
 
-The screen supports CSV and JSON export.
+CSV and JSON export are supported.
 
-## 11. Public inquiry system
+## 10. Public inquiry system
 
-A participant can submit an email inquiry before applying to the study.
+A participant can ask an email inquiry before applying.
 
-The public RPC validates that the study is published, validates input length/email format, rate-limits rapid duplicate inquiry messages, creates/reuses a thread, and marks it `pending`.
+Public inquiry submission validates published study state, input length/email format, and rapid duplicates, then creates/reuses a `pending` thread.
 
-When possible, inquiries are associated with an existing or later-created participant response using conservative matching:
+Conservative inquiry/application matching order:
 
 1. unique exact email
-2. email + name when email is ambiguous
+2. email + name when email alone is ambiguous
 3. unique normalized name
 
 Ambiguous matches are not forced.
 
-## 12. Contact state model
+## 11. Contact state model
 
-Supabase is the application source of truth for communication state.
-
-Key tables:
-
-- `contact_threads`
-- `contact_messages`
+Supabase tables `contact_threads` and `contact_messages` are the communication source of truth.
 
 Thread statuses:
 
@@ -304,156 +250,127 @@ Thread statuses:
 - `open` — conversation in progress
 - `closed` — finished
 
-Sources:
+Sources include `participant` and `public_inquiry`.
 
-- `participant`
-- `public_inquiry`
+The contact UI prioritizes pending conversations, then recency, and supports participant/inquiry search.
 
-The contact UI prioritizes `pending` conversations, then recency, and supports participant/inquiry search.
+Automatic schedule email is recorded in conversation history but does not falsely clear a pending participant inquiry.
 
-Automatic schedule messages are labeled in the conversation as automatic schedule notices.
+## 12. ClawMail email provider
 
-An automatic schedule email does not count as a researcher reply to a pending participant inquiry; an existing `pending` state must remain pending unless the researcher actually handles it.
+ClawMail is the current email transport.
 
-## 13. ClawMail email provider
+Private study mailbox material is stored in `private.clawmail_material`; the browser cannot read provider tokens. `study_contact_channels` contains non-secret channel identity.
 
-ClawMail is the current production email transport.
+The `clawmail` Edge Function supports status, provision, sync, and sending through an existing owned thread. Imported provider message IDs are deduplicated. The contact UI polls while connected.
 
-Study-specific material is stored in the private Supabase table:
+Known risk: runtime testing encountered a provider daily send limit of 5. Provider capacity must be validated/upgraded before participant-scale use.
 
-`private.clawmail_material`
+Provider failure does not roll back scheduling state.
 
-Stored private values include provider inbox identity, address, and API token. Browser clients cannot read this table.
+## 13. Schedule notification subsystem
 
-`study_contact_channels` stores the non-secret public-facing channel identity.
+`notifications` audits schedule-mail delivery.
 
-The `clawmail` Edge Function currently supports:
-
-- status
-- provision a research inbox
-- sync inbox
-- send a message through an existing owned thread
-
-The contact UI polls for new mail while connected, currently on an approximately 60-second interval.
-
-Provider message IDs are de-duplicated when importing.
-
-### Known provider risk
-
-E2E testing encountered a runtime error indicating a daily send limit of 5 even though public provider materials described a larger free-tier limit. Provider quota/capacity must be validated or upgraded before real participant-scale operation.
-
-Provider failure is treated as an email-delivery failure, not a scheduling transaction failure.
-
-## 14. Schedule notification subsystem
-
-Schedule email delivery has a separate audit table:
-
-`notifications`
-
-Current notification kinds:
+Kinds:
 
 - `schedule_confirmation`
 - `schedule_cancellation`
 
-Current notification statuses:
+Statuses:
 
 - `pending`
 - `sent`
 - `failed`
 - `skipped`
 
-`schedule-notify` handles:
+`schedule-notify` handles initial confirmations, changed-time messages, cancellation messages, idempotency, missing-email skips, provider failures, and writing automatic schedule notices into contact history.
 
-- initial confirmation mail
-- changed-time mail
-- cancellation mail
-- idempotency for an already-sent identical assignment time snapshot
-- missing-email skip state
-- provider failure logging
-- writing automatic schedule mail into the contact conversation history
+Messages can include date/time, duration, location, and participant instructions.
 
-Schedule messages may include:
+## 14. SMS and Google Calendar
 
-- session date/time
-- duration
-- location
-- participant instructions
+SMS is not a current product feature. Phone remains only as a manual researcher contact field; legacy DB enum values may remain for compatibility.
 
-The assignment change is saved even when notification delivery fails.
+Google Calendar integration was removed. Remaining `google-calendar` and `google-calendar-oauth` deployments are disabled JWT-required HTTP 410 stubs and must not be treated as active integration.
 
-## 15. SMS and legacy communication fields
+## 15. Deployment control plane
 
-SMS is not a current product feature.
-
-New/default forms no longer ask the participant to choose email vs SMS. Existing study form configuration was migrated to remove SMS-related copy. Phone is retained only as a manual researcher contact number.
-
-Some database enums still retain legacy `sms`, `phone`, `keyid`, or `manual` values for compatibility. Their existence does not mean the current UI supports those providers/channels.
-
-## 16. Google Calendar status
-
-Google Calendar integration was experimented with and then removed.
-
-Edge Functions named `google-calendar` and `google-calendar-oauth` may still appear in the Supabase function list, but their current implementation is a JWT-required HTTP 410 disabled stub.
-
-Do not treat them as active integrations.
-
-## 17. Deployment control plane
-
-Primary production deployment is controlled from Supabase rather than relying on Vercel's GitHub App.
-
-Architecture:
+Primary production deployment is controlled from Supabase rather than relying on a normal Vercel GitHub App push integration.
 
 ```text
-ChatGPT / operator
-  -> GitHub main source
-  -> insert apply-project job into deploy_control_jobs
-  -> database trigger dispatches via pg_net
-  -> vercel-control Edge Function
-  -> fetches GitHub tree/blob snapshot
-  -> creates/updates persistent Vercel project
-  -> uploads source via Vercel Files Deployment API
-  -> waits for build state
-  -> records deploy_control_state
+operator / ChatGPT
+  -> GitHub source / exact intended commit
+  -> deploy_control_jobs
+  -> Postgres trigger + pg_net
+  -> Supabase Edge Function: vercel-control
+  -> source snapshot
+  -> Vercel Files Deployment API
+  -> persistent Vercel project
+  -> deploy_control_state
 ```
 
-The Vercel bootstrap credential was rotated; the bootstrap token is recorded as revoked and a dedicated control token is used.
+`vercel-control` is now source-controlled at:
 
-No secret values should be copied from the private deployment secret store.
+`supabase/functions/vercel-control/index.ts`
+
+The live function intentionally uses `verify_jwt=false` because requests are protected by a separate high-entropy private `controlKey`. Do not remove that custom authentication or expose the key.
+
+### Source snapshot paths
+
+There are two snapshot modes:
+
+1. **Exact-SHA codeload mode — preferred when an exact source SHA is known**
+   - manifest includes `commitSha`
+   - function downloads `codeload.github.com/<repo>/tar.gz/<commitSha>`
+   - archive root is normalized before upload
+   - `package.json` presence is validated before a Vercel deployment is created
+   - `deploy_control_state.details.snapshotSource = github-codeload`
+
+2. **GitHub REST API mode — compatibility path**
+   - used when no explicit commit SHA is supplied
+   - resolves branch commit/tree/blobs through GitHub REST
+   - may use private `github_token` if configured
+
+The codeload path exists because unauthenticated GitHub REST calls from shared Supabase egress can hit low rate limits. Exact-SHA codeload avoids that shared-IP REST limit while retaining deterministic source selection for this public repository.
+
+The initial codeload implementation exposed an archive-root parser bug (`missing_pages_app` at Vercel); the current parser uses a two-pass common-root normalization and a `package.json` guard. Live `vercel-control` is version 4 after that correction.
+
+### Deployment acceptance
+
+A production deployment is not accepted merely because a job was inserted. Required checks include:
+
+- deploy job succeeds
+- `deploy_control_state.status = READY`
+- `details.commitSha` equals the intended exact SHA
+- production URL remains `https://research-align.vercel.app`
+- `snapshotSource` is recorded
+- relevant behavior is tested as far as the available authenticated environment permits
+
+The Vercel bootstrap credential was rotated; the bootstrap token is recorded as revoked and a dedicated Vercel control token is used.
 
 ### Vercel connector caveat
 
-The ChatGPT/Vercel connector can show an empty project list even though the persistent production project is healthy. The Supabase control plane has the authoritative operational credential/scope.
+The top-level ChatGPT/Vercel connector may lack permission to list/inspect this team project even while the Supabase control plane is healthy. Never create a duplicate project because of connector visibility; use `deploy_control_state` first.
 
-Never create a duplicate Vercel project based only on connector visibility.
+## 16. GitHub Actions
 
-## 18. GitHub Actions status
+`.github/workflows/vercel-control.yml` is a manual fallback, not the primary deployment mechanism.
 
-`.github/workflows/vercel-control.yml` is a manual fallback.
+`main` currently has no required build/lint checks or branch protection. This remains a hardening task.
 
-It is not the primary push-triggered deployment mechanism.
+## 17. Edge Functions
 
-The `main` branch currently has no required checks/branch protection. Adding build/lint gates and branch protection is a known hardening task before higher-stakes operation.
-
-## 19. Edge Functions: active vs disabled
-
-Core operational functions include:
+Core operational functions:
 
 - `vercel-control`
 - `vercel-inspect`
 - `clawmail`
 - `schedule-notify`
 
-Several experimental/bootstrap/probe functions remain listed as active deployments but intentionally return HTTP 410 and require JWT where appropriate, including examples such as:
+Several old bootstrap/probe/removed-integration functions can still appear in the function list but intentionally return HTTP 410 and require JWT where appropriate. Function-list ACTIVE status alone therefore does not imply an active product capability; inspect function bodies.
 
-- `bootstrap-research-align`
-- `direct-prod-deploy`
-- `ops-cancel-probe`
-- `range-delete-deploy-probe`
-- removed Google Calendar functions
-
-Function-list status alone is therefore insufficient; inspect the current function body before assuming a function is operational.
-
-## 20. Core database objects
+## 18. Core database objects
 
 Main public tables:
 
@@ -468,7 +385,7 @@ Main public tables:
 - `deploy_control_jobs`
 - `deploy_control_state`
 
-Private data includes:
+Private operational data includes:
 
 - `private.clawmail_material`
 - `private.deploy_control_secrets`
@@ -476,44 +393,44 @@ Private data includes:
 
 RLS is enabled on exposed application tables.
 
-## 21. Known production/test data state
+## 19. Production/test data state
 
-The production database currently contains demo/test studies and synthetic participants. It should not yet be treated as a clean real-pilot database.
+Production still contains demo/test studies and synthetic participants. Clean this deliberately before a real participant pilot; do not delete test/demo data as an incidental side effect of unrelated feature development.
 
-Before a real participant pilot, explicitly decide which demo records to retain and clean the rest rather than deleting data casually during unrelated feature development.
+## 20. Known technical debt / hardening backlog
 
-## 22. Known technical debt and hardening backlog
+### High priority before real pilot
 
-### High priority before a real pilot
-
-1. Validate/upgrade/replace ClawMail capacity so expected study mail volume is supported.
-2. Add CI build/lint checks and branch protection for `main`.
+1. Validate/upgrade/replace ClawMail capacity.
+2. Add CI build/lint gates and branch protection for `main`.
 3. Clean production demo/test data intentionally.
-4. Remove or archive unnecessary probe/legacy infrastructure after confirming no dependency remains.
+4. Remove/archive unnecessary legacy/probe infrastructure after dependency review.
 
 ### Code maintainability
 
-1. Remove build-time source rewrite in `scripts/prebuild-ui-copy.mjs` and make the Unified components canonical directly.
-2. Remove stale KeyID-era documentation/configuration and regenerate/update `SOURCE_MANIFEST.json` if it remains useful.
-3. Simplify legacy enum/provider states when backwards compatibility is no longer required.
+1. Remove `scripts/prebuild-ui-copy.mjs` source rewriting and make current UI source canonical.
+2. Reconcile stale KeyID-era README/config and `SOURCE_MANIFEST.json`.
+3. Simplify legacy enum/provider states when compatibility is no longer needed.
 
 ### Database/security/performance
 
-1. Review anonymous EXECUTE privilege on `create_demo_study()`; the function currently fails without an authenticated `auth.uid()`, but the grant should still be minimized.
-2. Keep intentionally public SECURITY DEFINER RPCs narrowly scoped and reviewed.
-3. Consider enabling Supabase leaked-password protection.
-4. Add useful indexes for current unindexed foreign keys, including `contact_threads.response_id`, `notifications.response_id`, and `studies.owner_id` as scale requires.
+1. Minimize unnecessary anonymous EXECUTE grants such as `create_demo_study()`.
+2. Keep intentionally public SECURITY DEFINER RPCs narrowly scoped.
+3. Consider Supabase leaked-password protection.
+4. Add useful indexes including `contact_threads.response_id`, `notifications.response_id`, and `studies.owner_id` as scale requires.
 
-## 23. Definition of production-ready change
+## 21. Definition of a production-ready change
 
-A change that affects production behavior is complete only when all applicable layers are verified:
+A production behavior change is complete only when all applicable layers are known:
 
 - source committed to GitHub
-- migration/function schema applied if needed
-- frontend/server build succeeds
-- intended production deployment reaches READY
-- deployed commit matches intended source commit
-- participant/researcher behavior is tested at the real production boundary
-- provider failure behavior remains recoverable
-- temporary test infrastructure is disabled/removed
-- `docs/HANDOFF.md` and `docs/DEVELOPMENT_LOG.md` are updated
+- each meaningful source change recorded in `CHANGE_LEDGER`
+- DB migration/function state applied and verified if relevant
+- Edge Function version/auth state verified if relevant
+- Next/Vercel build succeeds
+- intended production deployment is READY
+- deployed commit equals the intended source commit
+- relevant researcher/participant behavior is tested at the real boundary when an authenticated environment is available
+- unperformed tests are explicitly recorded rather than implied
+- temporary infrastructure/probes are disabled or cleaned up
+- HANDOFF and DEVELOPMENT_LOG are updated
