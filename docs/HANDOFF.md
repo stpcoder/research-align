@@ -8,11 +8,11 @@ Read root `AGENTS.md` first, then this file, `docs/PROJECT_STATE.md`, `docs/WORK
 
 - repository: `stpcoder/research-align`
 - active branch: `main`
-- work status: `clean`
-- session topic: shared admin primitive/design-system completion
+- work status: clean
+- session topic: visual consistency audit / residual CSS drift removal
 - next session should continue branch: `main`
 - no runtime feature is partially implemented
-- no local-only product code is being carried forward
+- no local-only product state remains
 
 ### Workspace hydration state
 
@@ -22,314 +22,209 @@ Read root `AGENTS.md` first, then this file, `docs/PROJECT_STATE.md`, `docs/WORK
 - local-only state remaining: none
 - safe to lose current mount: yes
 - local build environment available: no
-- production build validation came from Vercel deployment
+- build verification came from the production Vercel deployment
 
-## 2. Exact source state
+## 2. Exact source and production state
 
-GitHub `main` immediately before the final ADMIN_DESIGN_SYSTEM + PROJECT_STATE + DEVELOPMENT_LOG + HANDOFF documentation commit:
+GitHub `main` before the final DESIGN_SYSTEM + DEVELOPMENT_LOG + HANDOFF docs commit:
 
-`6abd945bb1e9ce81e3d5f0c3eeae72bb9a82ec5a`
+`7b91e4004e7a2e8886f759b9f30992175767b449`
 
 Message:
 
-`docs(ledger): reconcile admin design rollout`
+`docs(ledger): record visual consistency rollout`
 
-The final documentation commit containing this handoff will be newer than `6abd945...`; the next session must query live `main` HEAD.
+The final docs commit containing this handoff will be newer. A future session must query live `main` rather than assuming the SHA above is still HEAD.
 
-### Production/source distinction
+### Latest meaningful source change
 
-Production currently runs exact repository snapshot:
+`3ae63c66fb5208e920b006b65cd02ab04c87f27e` — `refactor(ui): remove visual style drift`
 
-`dfb8a7796b90bce663a8e48fcf90296cd1857ad0`
+Mapped ledger entry:
 
-The meaningful runtime source commit inside that snapshot is:
+`CHANGE-20260817-018`
 
-`a1741845de378eeef85308e74298d34850acefb3` — `refactor(ui): complete shared admin primitive migration`
+### Production
 
-`dfb8a779...` adds the initial CHANGE-017 ledger bookkeeping on top of that runtime source and was the exact SHA deployed.
+- production URL: `https://research-align.vercel.app`
+- Vercel deployment: `dpl_6wjyszA3h7mhVrFpjRX99zFdfxtu`
+- Vercel status: `READY`
+- exact deployed repository snapshot: `1eef5a91aed7ee25c754502b22e3f89e8f3faa93`
+- meaningful runtime source inside that snapshot: `3ae63c66fb5208e920b006b65cd02ab04c87f27e`
+- snapshot source: `github-codeload`
+- deploy-control job: `84b5bfd7-fd3b-476f-88d4-e756337833db`
+- pg_net request: `126`
+- job status: `succeeded`
 
-GitHub `main` is ahead of production only by ledger/documentation bookkeeping:
+GitHub `main` is ahead of production only by CHANGE-018 rollout bookkeeping and final documentation. There is no unexplained runtime drift.
 
-- `9551beffae97dec4bd17a7d220a70becca6608cb` — attach CHANGE-017 rollout result
-- `6abd945bb1e9ce81e3d5f0c3eeae72bb9a82ec5a` — reconcile CHANGE-013 through CHANGE-016 rollout state
-- final documentation commit — ADMIN_DESIGN_SYSTEM + PROJECT_STATE + DEVELOPMENT_LOG + this HANDOFF
+## 3. What CHANGE-018 changed
 
-There is **no unexplained runtime drift**.
+This was a visual/cascade refactor only. No application behavior code, database schema, Edge Function, or provider contract changed.
 
-### Meaningful source commits covered by this design-system effort
+### CSS ownership consolidation
 
-Earlier phase, already integrated/deployed:
+`src/app/admin-foundation.css` is now the sole structural owner for generic authenticated researcher UI:
 
-1. `6c35064df79111d37fc1f3c48abd24f06ed6f3be` — shared admin foundation
-2. `8c2c6578b3175a9a170677768f647d639c6d7acf` — participant-page shared primitive migration
-3. `6a80a9f08e3aa97fcbf0f97c17dc782b0317c212` — Contact shared primitive migration
-4. `8c4a7872f24b73410f0650ba064cc7a1c90c27e3` — legacy visual conflict/microcopy cleanup
-
-Final completion:
-
-5. `a1741845de378eeef85308e74298d34850acefb3` — Home/Form/Schedule shared primitive migration and canonicalization cleanup
-
-### Granular ledger mapping
-
-| Change ID | Source commit | Latest state |
-|---|---|---|
-| `CHANGE-20260817-013` | `6c35064df79111d37fc1f3c48abd24f06ed6f3be` | production-deployed |
-| `CHANGE-20260817-014` | `8c2c6578b3175a9a170677768f647d639c6d7acf` | production-deployed |
-| `CHANGE-20260817-015` | `6a80a9f08e3aa97fcbf0f97c17dc782b0317c212` | production-deployed |
-| `CHANGE-20260817-016` | `8c4a7872f24b73410f0650ba064cc7a1c90c27e3` | production-deployed |
-| `CHANGE-20260817-017` | `a1741845de378eeef85308e74298d34850acefb3` | production-deployed |
-
-The earlier CHANGE-013..016 entries were reconciled in `6abd945...` because their source had already been successfully deployed in the `fdb0e31...` production snapshot but their status field still said `committed`.
-
-## 3. Shared admin design system — current source of truth
-
-### Generic component owner
-
-`src/components/admin/AdminUI.tsx`
-
-Generic researcher UI must reuse shared primitives. Current primitives include:
-
-- `AdminButton`
-- `AdminLinkButton`
-- `AdminIconButton`
-- `AdminInput`
-- `AdminSelect`
-- `AdminTextarea`
-- `AdminField`
-- `AdminActions`
-- `AdminToolbar`
-- `AdminPageHeader`
-- `AdminSectionHeader`
-- `AdminPanelHeader`
-- `AdminSurface`
-- `AdminSplitView`
-- `AdminDivider`
-- `StatusBadge`
-- `AdminListItem`
-- `AdminMenuItem`
-- `AdminActionRow`
-- `AdminDataList`
-- `AdminDataRow`
-- `AdminMetricStrip`
-- `AdminMetric`
-- `AdminTable`
-- `AdminTableRow`
-- `AdminTableCell`
-- `SegmentedControl`
-
-Do not create page-specific copies of these interaction patterns.
-
-### Token/geometry owner
-
-`src/app/admin-foundation.css`
-
-This owns:
-
-- `--ui-font-family`
-- `--ui-line-width = 1px`
-- normal/strong line colors
-- horizontal/vertical divider geometry
-- page/section/panel/body/label/meta type scale
-- surface border/radius/padding
-- button variants and geometry
+- font family/type scale
+- 1px normal divider/border geometry
+- major surface geometry
+- button geometry/variants
 - input/select/textarea geometry
-- list/data-row/table geometry
-- selected full-surface treatment
-- compatibility aliases for legacy class names
-- shared schedule/blackout/timetable grid-line base tokens
+- page/section/panel header structure
+- list/status/data-row/table structure
+- selected-state treatment
 
-Routine metadata/helper/status text is 12px. 11px is reserved for true kicker/index use. Routine 10px helper text should not be introduced.
+The following imported files are now page/domain layout/state layers rather than competing generic component systems:
 
-### Generic vs specialized boundary
+- `admin-unified.css`
+- `workspace.css`
+- `ops-enhancements.css`
+- `schedule-planner.css`
+- `form-controls.css`
+- `availability-editor.css`
 
-Specialized UI is allowed only when the interaction is genuinely domain-specific.
-
-Current intentionally specialized examples:
-
-- schedule session selector
-- schedule timetable cell
-- availability blackout cell
-- email message bubble
-
-Those specialized surfaces still use the shared font, line, spacing, radius and semantic-state tokens. “Specialized” does not allow a second button/input/table system.
-
-## 4. Page implementation state
+`ui-polish.css` was removed from `layout.tsx` imports. The file may still exist in the repo but no longer affects runtime.
 
 ### Home
 
-- page header/actions use shared primitives
-- top metrics use one `AdminMetricStrip` with shared dividers, not four cards
-- study status/buttons use shared primitives
-- per-study operational counts are quiet text actions rather than small boxes
-- upcoming agenda uses `AdminActionRow`
-- stop-before-delete lifecycle is canonical in `ResearchHome.tsx`
+Study entries visually behave as rows in one shared parent surface separated by the standard 1px divider rather than one rounded bordered card per study.
 
-### 신청서
+### Schedule
 
-- generic input/select/textarea/button/icon/menu controls use shared primitives
-- choice rows use divider-row structure instead of box-per-choice
-- redundant always-visible `저장됨`, question-number microcopy, repeated settings explanations, boxed required-state copy and date-pill boxes were removed/reduced
-- blackout grid remains specialized
-- publish-save callback is canonical in `FormBuilderUnified.tsx`
+- session selector is a divider-row list rather than nested rounded mini-cards
+- session numbers are plain metadata rather than circular badges
+- redundant current/grid/confirmation helper lines are visually suppressed
+- coordination/change/blocking context uses horizontal separators instead of another rounded card
+- meaningful cell/legend/current metadata is 12px
+- explicit chosen-slot emphasis is limited to a 2px temporary outline
+- confirmation bar targets the actual shared `.aui-button` implementation
 
-### 신청자
+### Contact / Form
 
-- participant list, search, actions and history/data rows use shared primitives
-- per-slot chip boxes/internal ID microtext were removed in the prior phase
+- automatic schedule notification marker is quiet metadata rather than another pill
+- redundant form date-count microcopy is not displayed
 
-### 일정
+## 4. Current shared design-system contract
 
-- search/filter, navigation arrows, page/panel actions, assignment actions, coordination actions and confirmation buttons use shared primitives
-- participant list shares the same list language as 신청자/연락
-- session selector and timetable cells remain specialized scheduling controls
-- timetable consumes the shared 1px line/type system
+### React component owner
 
-### 연락
+`src/components/admin/AdminUI.tsx`
 
-- page header, mailbox actions, search, participant/inquiry list, conversation actions, composer controls and inline schedule rows use shared primitives
-- email message bubbles remain specialized
+Generic UI must reuse the shared primitives already documented in `docs/ADMIN_DESIGN_SYSTEM.md`. Do not create page-specific button/dropdown/input/table/metric/list-row lookalikes.
 
-## 5. Build-time source mutation state
+### CSS token/geometry owner
 
-`npm run dev/build` still runs `scripts/prebuild-ui-copy.mjs`.
+`src/app/admin-foundation.css`
 
-The mutation surface is smaller now:
+Key invariants:
 
-- ResearchHome stop-before-delete behavior is **canonical source**, no longer prebuild-patched
-- FormBuilder publish-save callback is **canonical source**, no longer prebuild-patched
-- remaining prebuild work is the legacy top-level `page.tsx` / StudyWorkspace compatibility transformation plus date-window safety replacement
+- `--ui-line-width = 1px`
+- routine metadata/helper/status = 12px
+- 11px only for genuine kicker/index roles
+- normal major surface radius = 11px
+- normal control radius = 8px
+- input/select single-line minimum height = 38px
+- button normal/small heights = 36px / 32px
+- same font family across researcher pages
 
-Removing that remaining mutation is still a high-value maintainability task, but it should preserve all current runtime behavior.
+Page CSS may own layout and truly domain-specific state backgrounds. It must not use higher-specificity selectors to change generic input/button/select padding, font, height, border, or divider rules.
 
-## 6. Production application state
+## 5. Source-level visual audit evidence
 
-Latest successful rollout:
+After CHANGE-018, GitHub code search returned no matches for:
 
-- Vercel project ID: `prj_m1b582jShPhKBRfxY8GLDxAPFrGQ`
-- deployment ID: `dpl_HcfM9jkpgDoSmXpfwDu4VCpgCrJv`
-- status: `READY`
-- production URL: `https://research-align.vercel.app`
-- production repository snapshot: `dfb8a7796b90bce663a8e48fcf90296cd1857ad0`
-- meaningful runtime source inside snapshot: `a1741845de378eeef85308e74298d34850acefb3`
-- snapshot source: `github-codeload`
-- deploy-control job: `3e3d7508-73d9-4eb6-a2e2-cfe3557a9280`
-- pg_net request: `125`
-- job status: `succeeded`
+- `font-size:10`
+- `font-size:11`
+- raw `className="btn` researcher controls
 
-Previous design-system phase rollout:
+The important audit finding was that the remaining risk was mostly CSS cascade duplication rather than missing React primitives.
 
-- deployment: `dpl_ArkQh4QUyjMG1ehnrR99WrAcVnhG`
-- exact SHA: `fdb0e31ae2c139abbc71e9b179628b140ebd7ba2`
-- job: `6dc462a6-cc4a-41af-8b6e-aa499d047fa2`
-- request: `124`
-- READY
+## 6. Backend / provider state
 
-## 7. Supabase / Edge state
+Unchanged during this audit:
 
-- project: `rgwqsqeikebwunbdnbex`
-- no database migration was required for this design-system work
-- no PostgreSQL function/trigger/RLS change was made
-- no Edge Function was changed
+- Supabase project: `rgwqsqeikebwunbdnbex`
+- no DB migration
+- no trigger/RPC/RLS change
+- no Edge Function change
 - ClawMail contract unchanged
 - schedule-notify contract unchanged
-- vercel-control remains live v4 with exact-SHA codeload support
-- no temporary probes created
+- vercel-control remains live v4 with exact-SHA codeload deployment support
 
-## 8. Verification actually performed
+## 7. Verification boundary
 
-### Source / repository
+Verified:
 
-- `[PASS]` CHANGE-013 through CHANGE-016 source commits are durable and ledgered
-- `[PASS]` CHANGE-017 final source commit `a1741845...` was squashed directly on prior production parent `fdb0e31...`
-- `[PASS]` intermediate Home-only WIP checkpoint was removed from the final work-branch history and is not a ledgered logical change
-- `[PASS]` final CHANGE-017 source diff contained exactly seven intended runtime/source files
-- `[PASS]` CHANGE-013 through CHANGE-017 ledger rollout states reconciled
+- source commit durable in GitHub
+- CHANGE-018 mapped to exact source SHA
+- `main` fast-forwarded without divergence
+- deploy-control job succeeded
+- request `126` returned Vercel READY
+- production exact SHA matches `1eef5a91aed7ee25c754502b22e3f89e8f3faa93`
+- production Next.js/TypeScript build accepted the CSS ownership consolidation
+- `snapshotSource = github-codeload`
 
-### Build / deployment
+Not run:
 
-- `[PASS]` earlier combined design-system deployment `dpl_Ark...` READY on exact SHA `fdb0e31...`
-- `[PASS]` final deploy-control job `3e3d7508-73d9-4eb6-a2e2-cfe3557a9280` succeeded
-- `[PASS]` request `125` returned Vercel READY
-- `[PASS]` deployment `dpl_HcfM9jkpgDoSmXpfwDu4VCpgCrJv` READY
-- `[PASS]` production `commitSha = dfb8a7796b90bce663a8e48fcf90296cd1857ad0`
-- `[PASS]` `snapshotSource = github-codeload`
-- `[PASS]` production Next.js/TypeScript build accepted the shared component migration
+- authenticated researcher screenshot audit
+- authenticated Home → 신청서 → 신청자 → 일정 → 연락 click-through
+- realistic long-name / long-email / long-session-label visual overflow test
 
-### Browser / interaction boundary
+Do not describe those browser checks as completed until an authenticated researcher browser context exists.
 
-- `[NOT RUN]` authenticated researcher visual audit
-- `[NOT RUN]` authenticated Home → Form → Applicant → Schedule → Contact click-through
-- `[NOT RUN]` visual verification with intentionally long names/emails/session labels
+## 8. Ledger bookkeeping caveat
 
-Do not describe these as E2E-tested until an authenticated researcher browser context is available.
+The initial CHANGE-018 ledger write reconstructed the full ledger through the GitHub connector and unintentionally normalized wording in several older entries (CHANGE-011, CHANGE-008, CHANGE-006). No source SHA, deployment state, or factual meaning changed. CHANGE-018 explicitly records this so the bookkeeping-only wording diff is not silent.
 
-## 9. Durable design constraints for future work
+## 9. Remaining high-value work
 
-- generic controls must be shared React primitives, not page-specific lookalikes
-- shared font family/type/line/radius/control geometry belongs in `admin-foundation.css`
-- page CSS may control layout and domain-specific state backgrounds, not generic geometry
-- normal horizontal/vertical/grid lines are 1px and share the same token system
-- routine metadata is 12px; remove information that is too minor to deserve that role
-- avoid card-per-value/card-inside-card patterns
-- avoid left-edge-only selection/status patterns
-- prefer rows, dividers, whitespace and typography over more rectangles
-- update the design system first if a reusable pattern is missing
+### UX / visual
 
-## 10. Known unresolved risks / backlog
+The shared-system/source audit is complete enough that further visual changes should be based on **actual authenticated screenshots**, not speculative polish.
 
-### P0 before real pilot
+When a researcher browser session is available, audit with realistic data:
 
-- ClawMail sending capacity/quota still requires validation or upgrade
+- very long participant names
+- long email addresses
+- long study/session titles
+- multiple sessions
+- many dates
+- pending/failed/confirmed states
 
-### P1 UX
+Check specifically:
 
-- run authenticated visual/click audit across Home → 신청서 → 신청자 → 일정 → 연락
-- include realistic long names/emails/session labels and multi-session studies
-- verify text overflow, control heights, horizontal/vertical divider alignment, timetable line thickness, selected-state consistency and absence of accidental tiny text/box regressions
-- fix only concrete findings; do not add another decorative UI layer
+- text clipping/overflow
+- button/dropdown/input heights
+- horizontal and vertical 1px line alignment
+- timetable/blackout grid line consistency
+- selected-state visibility
+- whether any low-value tiny text or nested box remains
 
-### P1 maintainability / operations
+Only fix concrete findings.
 
-- remove remaining top-level `scripts/prebuild-ui-copy.mjs` mutation and make StudyWorkspace/page behavior canonical
-- add CI build/lint checks and branch protection
-- clean production demo/test data intentionally
-- clean legacy/probe/stale docs after dependency review
+### Maintainability
 
-### P2
+If authenticated visual context remains unavailable, the next highest-value frontend task is to remove the remaining `scripts/prebuild-ui-copy.mjs` top-level `page.tsx` / StudyWorkspace source mutation while preserving all current behavior.
 
-- persisted schedule proposals/acceptance only if real negotiation workflow demonstrates the need
-- Supabase advisor hardening/index recommendations
+### Before real pilot
 
-## 11. Exact next action
+- resolve/validate ClawMail send capacity
+- add CI build/lint gates and branch protection
+- intentionally clean production demo/test data
 
-Preferred next action:
+## 10. Recovery instructions
 
-> Obtain an authenticated researcher browser context and perform a visual/click audit of the entire current workflow using realistic data. Specifically check shared button/dropdown/input heights, font scale, 1px horizontal/vertical dividers, schedule/blackout grid lines, long-value overflow, selected rows, and whether any page still introduces unnecessary small text or nested boxes. Record only concrete findings as new logical changes.
-
-If authenticated browser context remains unavailable, the next product/operational task can proceed; the design-system migration is already production-build verified.
-
-## 12. Recovery instructions if this handoff is stale
+If this handoff is stale:
 
 1. query current GitHub `main`
-2. inspect commits newer than pre-final HEAD `6abd945bb1e9ce81e3d5f0c3eeae72bb9a82ec5a`
-3. compare meaningful source commits against `docs/CHANGE_LEDGER.md`
+2. read commits newer than `7b91e4004e7a2e8886f759b9f30992175767b449`
+3. reconcile source commits with `docs/CHANGE_LEDGER.md`
 4. inspect any recorded work branch before creating another one
-5. query `deploy_control_state`
-6. expected production baseline from this session is deployment `dpl_HcfM9jkpgDoSmXpfwDu4VCpgCrJv`, snapshot `dfb8a779...`, READY
-7. distinguish docs-only HEAD movement from runtime drift before editing
+5. query live `deploy_control_state`
+6. expected production baseline from this session is `dpl_6wjyszA3h7mhVrFpjRX99zFdfxtu`, exact snapshot `1eef5a91...`, READY
+7. distinguish docs-only HEAD movement from runtime drift
 
-## 13. Session documentation status
+## 11. Suggested next-chat prompt
 
-- CHANGE_LEDGER reconciled with meaningful source commits: yes
-- CHANGE-017 rollout state attached: yes
-- CHANGE-013 through CHANGE-016 stale rollout states reconciled: yes
-- ADMIN_DESIGN_SYSTEM prepared for final update: yes
-- PROJECT_STATE prepared for final update: yes
-- DEVELOPMENT_LOG prepared for prepend: yes
-- workspace local-only state: none
-- safe to lose current mount: yes
-- final handoff commit: query live main after this file is committed
-
-## 14. Suggested next-chat prompt
-
-> Continue `stpcoder/research-align`. Read root `AGENTS.md` and the full startup protocol, especially `docs/HANDOFF.md`, `docs/PROJECT_STATE.md`, `docs/ADMIN_DESIGN_SYSTEM.md`, `docs/WORKSPACE_PROTOCOL.md`, `docs/SESSION_PROTOCOL.md`, and `docs/CHANGE_LEDGER.md`. Verify current GitHub main and live Supabase `deploy_control_state`. Preserve the shared admin primitive rule: generic buttons/inputs/dropdowns/rows/tables/metrics must use `AdminUI.tsx`, and font/line/radius/control geometry must come from `admin-foundation.css`. Continue from HANDOFF's exact next action and ledger each meaningful change separately.
+> Continue `stpcoder/research-align`. Read root `AGENTS.md` and the full startup protocol. Verify current GitHub main and live Supabase `deploy_control_state`, then continue from `docs/HANDOFF.md`. Preserve the admin design-system contract: generic components belong in `AdminUI.tsx`, generic font/line/control geometry belongs in `admin-foundation.css`, and page/domain CSS must not reimplement generic component styling. If an authenticated researcher browser context is available, perform the concrete visual audit described in HANDOFF; otherwise continue with the next high-value maintainability or product task and ledger every meaningful change separately.

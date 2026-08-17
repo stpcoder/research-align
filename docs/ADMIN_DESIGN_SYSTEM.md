@@ -274,6 +274,7 @@ Do not use a colored left stripe to identify a schedule state.
 - metric strip: shared; one surface with dividers rather than four metric cards
 - study status/buttons: shared
 - per-study operational counts: quiet text actions rather than small boxes
+- study list: one parent surface with standard 1px divider rows rather than one rounded card per study
 - upcoming agenda: `AdminActionRow`
 
 ### 신청서
@@ -283,6 +284,7 @@ Do not use a colored left stripe to identify a schedule state.
 - choice input/remove/drag controls: shared
 - settings sections separated by spacing/dividers rather than multiple cards
 - date selections are quiet text actions instead of pill boxes
+- redundant date-count microcopy is not shown
 - blackout cells remain specialized because drag-paint behavior is domain-specific
 
 ### 신청자
@@ -295,8 +297,10 @@ Do not use a colored left stripe to identify a schedule state.
 
 - search/filter/actions/date navigation use shared controls
 - participant list uses the same list treatment as 신청자/연락
-- session selector and timetable cells remain specialized schedule controls
-- timetable still consumes shared line/type tokens
+- session selector is one divider-row list inside a surface, not a nested mini-card grid
+- timetable uses the shared line/type system
+- routine cell/legend metadata is 12px
+- change/coordination/blocking context uses inline divider-separated messaging instead of another rounded card
 - confirmation uses shared buttons with one clear primary action
 
 ### 연락
@@ -305,6 +309,7 @@ Do not use a colored left stripe to identify a schedule state.
 - conversation is one main surface
 - composer inputs/actions are shared
 - inline schedule context uses data rows/dividers, not another card
+- automatic schedule-message labeling is quiet metadata, not another pill
 - email message bubbles remain specialized
 
 ## 12. Build-time mutation constraint
@@ -340,3 +345,25 @@ If a new requirement cannot be expressed with the shared primitives/tokens, upda
 - action rows may horizontally scroll instead of wrapping labels
 - tables/timetables retain a useful minimum width and scroll
 - no control text should wrap into multiple lines because the viewport is narrow
+
+## 15. CSS cascade ownership
+
+`admin-foundation.css` is not merely a last-loaded patch layer. It is the **sole structural owner** of generic authenticated-researcher UI styling.
+
+The following files may contain page/domain layout and state styling, but must not re-implement generic component geometry or typography:
+
+- `admin-unified.css`
+- `workspace.css`
+- `ops-enhancements.css`
+- `schedule-planner.css`
+- `form-controls.css`
+- `availability-editor.css`
+
+Rules:
+
+- do not add high-specificity descendant selectors such as `.page input` or `.tool select` to change shared control padding/font/height
+- do not redefine `.aui-page-*`, `.aui-surface`, `.aui-list-item`, `.aui-status`, `.aui-field`, `.aui-button`, or `.aui-control` outside the foundation/shared component layer
+- specialized schedule/blackout/message selectors may define task-specific layout and state backgrounds, but line thickness and meaningful text scale still come from shared tokens
+- a stale stylesheet must be removed from the runtime import graph rather than relying on a later override to neutralize it
+
+As of CHANGE-20260817-018, `ui-polish.css` is no longer imported by `layout.tsx`; its legacy Contact/tiny-text rules do not participate in runtime CSS.

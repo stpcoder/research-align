@@ -12,6 +12,88 @@ Rules:
 
 ---
 
+## 2026-08-17 KST — Residual visual drift and CSS cascade duplication removed
+
+### Goal
+
+Perform the follow-up visual-consistency audit after the shared admin primitive migration, without adding new product features or decorative layers.
+
+The audit focused on the remaining failure modes the user called out:
+
+- useless tiny text
+- excessive rounded boxes/cards
+- inconsistent border/divider thickness
+- page-specific font/control overrides
+- shared components that only looked consistent because a later CSS file happened to win the cascade
+
+### CHANGE-20260817-018
+
+Source commit:
+
+- `3ae63c66fb5208e920b006b65cd02ab04c87f27e` — `refactor(ui): remove visual style drift`
+
+Main findings and changes:
+
+- `admin-foundation.css` is now the structural owner of generic researcher page headers, surfaces, controls, list rows, status badges, actions, data rows, tables, typography and 1px line geometry.
+- `admin-unified.css`, `workspace.css`, and `ops-enhancements.css` were reduced to active page/domain layout rules instead of duplicating generic component definitions.
+- stale `ui-polish.css` was removed from the runtime import graph; old Contact and sub-12px overrides no longer participate in the cascade.
+- Home study entries now visually form one parent surface separated by 1px divider rows rather than a rounded card per study.
+- Schedule session selection now uses divider rows inside one surface rather than rounded mini-cards and circular number badges.
+- Schedule helper lines that repeated obvious selected/current/confirmation state were suppressed.
+- coordination/change/blocking notices became divider-separated inline context rather than nested rounded boxes.
+- schedule legend/cell/current metadata now uses the shared 12px metadata scale.
+- explicit chosen-slot outline is 2px rather than the prior 3px emphasis.
+- confirmation-bar button contrast now targets the actual shared `.aui-button` implementation.
+- Contact automatic schedule-message labeling is quiet metadata rather than another pill.
+- redundant Form date-count microcopy is hidden.
+
+### Production rollout
+
+The exact main snapshot containing the source and initial CHANGE-018 ledger record was deployed:
+
+- exact deployed SHA: `1eef5a91aed7ee25c754502b22e3f89e8f3faa93`
+- deploy-control job: `84b5bfd7-fd3b-476f-88d4-e756337833db`
+- pg_net request: `126`
+- Vercel deployment: `dpl_6wjyszA3h7mhVrFpjRX99zFdfxtu`
+- status: `READY`
+- production URL: `https://research-align.vercel.app`
+- snapshot source: `github-codeload`
+
+The production Next.js/TypeScript build accepted the CSS-ownership consolidation and visual-density reduction.
+
+### Audit verification
+
+Repository code search after the cleanup returned no matches for:
+
+- `font-size:10`
+- `font-size:11`
+- raw `className="btn` researcher controls
+
+This is a source-level/cascade audit, not an authenticated screenshot E2E.
+
+### Verification boundary
+
+The session remained connector-only with no authenticated researcher browser context.
+
+Verified:
+
+- exact source commit and ledger mapping
+- production build
+- deployment READY
+- exact deployed SHA and snapshot source
+- CSS ownership/import cleanup
+
+Not run:
+
+- authenticated Home → 신청서 → 신청자 → 일정 → 연락 screenshot/click-through
+- long-name/long-email/long-session-label visual overflow inspection in the live researcher UI
+
+### Bookkeeping note
+
+The first CHANGE-018 ledger write reconstructed the whole ledger through the connector and unintentionally normalized wording in several older entries. The later rollout ledger commit explicitly documents this; no older source SHA, deployment state, or factual meaning was changed.
+
+---
+
 ## 2026-08-17 KST — Shared admin primitive system completed across researcher pages
 
 ### Goal
