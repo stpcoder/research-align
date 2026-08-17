@@ -77,6 +77,49 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-010 — Turn manual scheduling into an explicit participant coordination flow
+
+- Time: 2026-08-17 18:47 KST
+- Type: feat
+- Area: schedule / contact / coordination
+- Source commit: `70af27d5fb1feafc748749ecf630c17116027f82`
+- Branch: `main`
+- Status: committed
+
+### What changed
+- Replaced the implementation-oriented `직접 협의한 시간 지정` entry point with researcher-facing `다른 시간 조율하기`.
+- Opening coordination no longer immediately enables every empty slot. The researcher must choose either `이메일로 시간 협의` or `이미 합의한 시간이 있음`.
+- `이메일로 시간 협의` moves to the Contact view while preserving the same participant context.
+- `이미 합의한 시간이 있음` explicitly enters the empty-slot selection mode for a time already agreed with the participant.
+- Reworded `직접 협의` labels to `별도 합의` / `합의한 시간`, matching the actual researcher task instead of the implementation source field name.
+- Coordination, change, and agreed-time modes are mutually exclusive and reset together on participant/session transitions and after confirmation/cancellation.
+- The underlying `scheduling_source = admin_agreed` audit field remains unchanged.
+
+### Files / objects
+- `src/components/ScheduleUnified.tsx`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: existing `scheduling_source` and `agreement_confirmed_at` model retained
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: schedule-notify and ClawMail contracts unchanged
+
+### Application deployment
+- Deployment ID: not deployed yet
+- Production commit: currently unchanged (`79dfc2cd0777031a2d64f2dda734e30b98d1fe1f`)
+
+### Verification
+- `[PASS]` source commit created on `main` with the new coordination decision flow.
+- `[PENDING]` production Next.js build and authenticated researcher browser workflow will be verified in the rollout pass.
+
+### Notes / follow-up
+- This is intentionally not a proposed-time state machine yet; a future P2 can add explicit schedule proposals and participant acceptance tracking.
+
+---
+
 ## CHANGE-20260817-009 — Clarify schedule change and post-session action hierarchy
 
 - Time: 2026-08-17 18:43 KST
