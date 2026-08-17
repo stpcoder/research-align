@@ -77,6 +77,48 @@ If a session terminates between the source commit and the ledger bookkeeping com
 
 ---
 
+## CHANGE-20260817-011 — Show compact participant schedule context inside Contact
+
+- Time: 2026-08-17 19:03 KST
+- Type: feat
+- Area: contact / schedule / participant-workflow
+- Source commit: `86e321f56db888a30dca57ec4b69bcee345eb07a`
+- Branch: `main`
+- Status: committed
+
+### What changed
+- Contact now loads current study assignments together with participants and message threads.
+- When a matched participant is selected, the conversation surface shows a compact `일정` section directly below the participant header.
+- Each availability/session field is represented by one plain row: session name, current confirmed/completed/no-show time or a compact preview of submitted candidate slots, and a semantic status badge.
+- Unscheduled candidate previews are ordered by submitted preference rank, show at most three concrete slots, and collapse remaining choices to `+N` to avoid visual overload.
+- The context uses horizontal dividers inside the existing conversation surface rather than adding another card, colored side rail, or ornamental container.
+
+### Files / objects
+- `src/components/ContactManager.tsx`
+- `src/app/ops-enhancements.css`
+
+### Database
+- Migration: none
+- Production applied: not-applicable
+- Live verification: no schema change; existing assignments data is read only
+
+### Edge / provider
+- Function/provider: none
+- Deployment/auth state: ClawMail and schedule-notify contracts unchanged
+
+### Application deployment
+- Deployment ID: not deployed yet
+- Production commit: currently unchanged (`a68c2439c66ecd663466a746adb37f085f5c57c0`)
+
+### Verification
+- `[PASS]` source commit created atomically with Contact logic and restrained schedule-context styling.
+- `[PENDING]` production Next.js build and authenticated Contact workflow verification will be performed after the paired contact-chrome simplification change.
+
+### Notes / follow-up
+- The schedule context deliberately does not reproduce the full timetable; `일정에서 보기` remains the route for detailed coordination.
+
+---
+
 ## CHANGE-20260817-010 — Turn manual scheduling into an explicit participant coordination flow
 
 - Time: 2026-08-17 18:47 KST
