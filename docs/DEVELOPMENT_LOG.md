@@ -12,6 +12,60 @@ Rules:
 
 ---
 
+## 2026-08-17 KST — Granular one-change-at-a-time ledger made mandatory
+
+### Goal
+
+Strengthen cross-session recoverability so future development records every meaningful logical modification individually, not only as a session summary.
+
+### Meaningful source/process commits
+
+- `2e475a880495575de41376a3fde786ae7f749abd` — `docs(dev): add granular change ledger`
+  - created `docs/CHANGE_LEDGER.md`
+  - established one logical change = one ledger entry
+- `d8b63b1ef32de06afacea97208910e889fdf4a3f` — `docs(dev): require per-change ledger entries`
+  - made the ledger mandatory in `AGENTS.md`
+  - updated `docs/SESSION_PROTOCOL.md`
+  - updated `docs/HANDOFF_TEMPLATE.md`
+  - added interrupted-session recovery for commits missing a ledger entry
+
+### Ledger bookkeeping
+
+- `CHANGE-20260817-001` maps to `2e475a...`
+- `CHANGE-20260817-002` maps to `d8b63b...`
+- `efeddbd5ad89604c8000040ffbfb0c279e3b6c71` — `docs(ledger): record protocol enforcement`
+  - bookkeeping-only commit; exempt from receiving another ledger entry
+
+### Durable rule established
+
+The required cycle for future meaningful development is now:
+
+```text
+logical change
+-> verification checkpoint
+-> atomic source commit
+-> one CHANGE_LEDGER entry referencing exact source SHA
+-> ledger bookkeeping commit
+-> only then next independent logical change
+```
+
+DB migration, Edge Function, provider, Vercel deployment, and E2E state are attached to the same Change ID as rollout progresses.
+
+Pure ledger and final handoff bookkeeping commits are exempt from their own ledger entries to prevent recursive logging.
+
+### Verification
+
+- confirmed `main` baseline before the new ledger was `c42c98e71e0b742e5eb41053830da3c7b70a88b4`
+- confirmed `2e475a...` added the ledger
+- created policy commit `d8b63b...` and fast-forwarded `main`
+- committed `CHANGE-20260817-002` bookkeeping as `efeddbd...`
+- re-queried live `deploy_control_state`
+- production remains `READY` on `dpl_AcPUSSgYSPxbhkVtK99BKACtTyQ5`
+- production runtime commit remains `dd5eab06280f78f37d5926f4d940ef697c04d4b0`
+- no runtime deployment was triggered because these were development-process documentation changes only
+
+---
+
 ## 2026-08-16 KST — Cross-session commit and recovery protocol hardened
 
 ### Goal
